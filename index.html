@@ -260,6 +260,10 @@
     <div class="si" onclick="openAdjAcct('cash')"><div class="si-ic" style="background:#2c2c2e">💵</div><div class="si-t"><div class="si-n">Наличные</div><div class="si-s">Скорректировать баланс</div></div><div class="si-r"><div class="si-v" id="p-cash">0,00 €</div></div></div>
     <div class="si" onclick="openAdjAcct('bank')"><div class="si-ic" style="background:#152030">🏦</div><div class="si-t"><div class="si-n">Банковский счёт</div><div class="si-s">Скорректировать баланс</div></div><div class="si-r"><div class="si-v" id="p-bank">0,00 €</div></div></div>
   </div></div>
+  <div class="sg"><div class="sg-lbl">Настройки</div><div class="slist">
+    <div class="si" id="set-sound-row"><div class="si-ic" style="background:#1a1830">🔊</div><div class="si-t"><div class="si-n">Звук операций</div><div class="si-s">Тихий сигнал при добавлении</div></div><div class="si-r"><div class="tog" id="set-sound"></div></div></div>
+    <div class="si" id="set-hide-row"><div class="si-ic" style="background:#0a2018">👁️</div><div class="si-t"><div class="si-n">Скрывать суммы</div><div class="si-s">Размывать балансы на экране</div></div><div class="si-r"><div class="tog" id="set-hide"></div></div></div>
+  </div></div>
   <div class="sg"><div class="sg-lbl">Данные</div><div class="slist">
     <div class="si" onclick="backupData()"><div class="si-ic" style="background:#0a2018">🔐</div><div class="si-t"><div class="si-n">Резервная копия</div><div class="si-s">Скачать все данные (JSON)</div></div><div class="si-r"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg></div></div>
     <div class="si" onclick="document.getElementById('restore-file').click()"><div class="si-ic" style="background:#152030">📂</div><div class="si-t"><div class="si-n">Восстановить из копии</div><div class="si-s">Загрузить JSON-файл</div></div><div class="si-r"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg></div></div>

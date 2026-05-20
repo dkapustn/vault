@@ -1,18 +1,8 @@
+// Регистрируем service worker (sw.js) — кэширует приложение для офлайн-работы.
+// Работает только по http(s) (например, GitHub Pages); по file:// тихо игнорируется.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Inline SW as blob for single-file PWA
-    const swCode = `
-self.addEventListener('install', e => self.skipWaiting());
-self.addEventListener('activate', e => clients.claim());
-self.addEventListener('fetch', e => {
-  if (e.request.mode === 'navigate') {
-    e.respondWith(fetch(e.request).catch(() => caches.match('vault-shell')));
-  }
-});
-`;
-    const blob = new Blob([swCode], {type: 'application/javascript'});
-    const swUrl = URL.createObjectURL(blob);
-    navigator.serviceWorker.register(swUrl).catch(()=>{});
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
 }
 
@@ -1165,27 +1155,36 @@ function renderRec() {
   const list = document.getElementById('rec-list');
   if (!S.recurring.length) { list.innerHTML = '<div class="empty" style="margin:0 22px"><span class="ei">🔁</span><p>Нет регулярных платежей</p></div>'; return; }
   const now = new Date();
+  const td = today();
   list.innerHTML = S.recurring.map(r => {
     const day = r.day || 1;
     let nd = new Date(now.getFullYear(), now.getMonth(), day);
     if (nd <= now) nd = new Date(now.getFullYear(), now.getMonth() + 1, day);
     const dl = Math.ceil((nd - now) / 86400000);
-    return `<div class="rec-c" data-rid="${r.id}" style="cursor:pointer">
-      <div class="rec-ico" style="background:${getCat(r.category || 'other').color}15">${r.icon || getCat(r.category || 'other').icon}</div>
-      <div class="rec-b">
-        <div class="rec-n">${r.name}</div>
-        <div class="rec-f"><span class="pill rec">${FREQ[r.freq] || r.freq}</span>${r.day ? `<span style="font-size:10px;color:var(--ink4)">· ${r.day}-го</span>` : ''}</div>
+    const paidToday = r.lastPaid === td;
+    return `<div class="rec-c" data-rid="${r.id}">
+      <div class="rec-main">
+        <div class="rec-ico" style="background:${getCat(r.category || 'other').color}15">${r.icon || getCat(r.category || 'other').icon}</div>
+        <div class="rec-b">
+          <div class="rec-n">${r.name}</div>
+          <div class="rec-f"><span class="pill rec">${FREQ[r.freq] || r.freq}</span>${r.day ? `<span style="font-size:10px;color:var(--ink4)">· ${r.day}-го</span>` : ''}</div>
+        </div>
+        <div class="rec-r">
+          <div class="rec-a">−${fmt(r.amount)} €</div>
+          <div class="rec-nx">${paidToday ? 'оплачено сегодня' : 'через ' + dl + ' дн.'}</div>
+        </div>
       </div>
-      <div class="rec-r">
-        <div class="rec-a">−${fmt(r.amount)} €</div>
-        <div class="rec-nx">через ${dl} дн.</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;margin-left:8px">
-        <button class="rec-edit-btn" data-rid="${r.id}" style="width:28px;height:28px;border-radius:8px;border:none;background:var(--bl2);color:var(--bl);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center">✏️</button>
-        <button class="rec-del-btn" data-rid="${r.id}" style="width:28px;height:28px;border-radius:8px;border:none;background:var(--rd2);color:var(--rd);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center">🗑</button>
+      <div class="rec-actions">
+        <button class="rec-pay-btn" data-rid="${r.id}" ${paidToday ? 'disabled' : ''}>${paidToday ? '✓ Оплачено' : '✓ Оплатить'}</button>
+        <button class="rec-edit-btn" data-rid="${r.id}">✏️</button>
+        <button class="rec-del-btn" data-rid="${r.id}">🗑</button>
       </div>
     </div>`;
   }).join('');
+  list.querySelectorAll('.rec-pay-btn').forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!btn.disabled) payRecurring(btn.dataset.rid);
+  }));
   list.querySelectorAll('.rec-edit-btn').forEach(btn => btn.addEventListener('click', e => {
     e.stopPropagation();
     openRecEdit(btn.dataset.rid);
@@ -1213,6 +1212,20 @@ function renderRec() {
       save(); ov.remove(); renderRec(); toast('🗑 Платёж удалён');
     };
   }));
+}
+
+// Провести регулярный платёж — создаёт реальную операцию-расход
+function payRecurring(rid) {
+  const r = S.recurring.find(x => x.id === rid);
+  if (!r) return;
+  S.transactions.push({ id: uid(), type: 'expense', amount: r.amount, desc: r.name, note: '', date: today(), account: r.account || 'cash', category: r.category || 'other', isRec: true, recId: r.id });
+  r.lastPaid = today();
+  save();
+  renderRec(); renderHome();
+  if (curSc === 'transactions') renderTx();
+  playAddSound();
+  addNotif('Платёж проведён', `${r.name} — ${fmt(r.amount)} €`, r.icon || '🔁', 'info');
+  toast(`✅ ${r.name}: −${fmt(r.amount)} €`);
 }
 
 function openRecM() {
@@ -1620,8 +1633,40 @@ document.getElementById('prof-ok').addEventListener('click', () => {
 
 
 // Инициализация тогглов настроек при загрузке
+function applyHideBalances(on) {
+  document.getElementById('app')?.classList.toggle('hide-amounts', !!on);
+}
+
 function initSettings() {
-  const sets = S.settings || {};
+  S.settings = S.settings || {};
+  const sets = S.settings;
+  applyHideBalances(sets.hideBalances);
+
+  const soundTog = document.getElementById('set-sound');
+  const soundRow = document.getElementById('set-sound-row');
+  if (soundTog) soundTog.classList.toggle('on', !!sets.sound);
+  if (soundRow && !soundRow._bound) {
+    soundRow._bound = true;
+    soundRow.addEventListener('click', () => {
+      S.settings.sound = !S.settings.sound;
+      soundTog.classList.toggle('on', S.settings.sound);
+      save();
+      if (S.settings.sound) playAddSound();
+    });
+  }
+
+  const hideTog = document.getElementById('set-hide');
+  const hideRow = document.getElementById('set-hide-row');
+  if (hideTog) hideTog.classList.toggle('on', !!sets.hideBalances);
+  if (hideRow && !hideRow._bound) {
+    hideRow._bound = true;
+    hideRow.addEventListener('click', () => {
+      S.settings.hideBalances = !S.settings.hideBalances;
+      hideTog.classList.toggle('on', S.settings.hideBalances);
+      save();
+      applyHideBalances(S.settings.hideBalances);
+    });
+  }
 }
 
 // Звук при добавлении транзакции
@@ -1656,7 +1701,9 @@ document.getElementById('acct-ok').addEventListener('click', () => {
   const cur = acctBal(acctTarget);
   const diff = newBal - cur;
   if (Math.abs(diff) > 0.001) {
-    S.transactions.push({ id: uid(), type: diff > 0 ? 'income' : 'expense', amount: Math.abs(diff), desc: 'Корректировка баланса', note: '', date: today(), account: acctTarget, category: 'other', isRec: false });
+    // Корректируем «базовый» баланс счёта, а не создаём доход/расход —
+    // иначе корректировки засоряют аналитику доходов/расходов.
+    S.accounts[acctTarget] = (S.accounts[acctTarget] || 0) + diff;
   }
   save(); closeM('m-acct'); renderHome(); renderProfile(); toast('✅ Баланс обновлён');
 });
