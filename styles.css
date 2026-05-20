@@ -792,21 +792,6 @@ mark{background:rgba(240,144,10,.35)}
 .shake{animation:shake .4s cubic-bezier(.36,.07,.19,.97)}
 @keyframes shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
 
-/* ── HIDE BALANCES (privacy mode) ── */
-#app.hide-amounts .hero-amt,
-#app.hide-amounts .hst-v,
-#app.hide-amounts .ac-amt,
-#app.hide-amounts .sth-a,
-#app.hide-amounts .sth-sv,
-#app.hide-amounts .piggy-bal,
-#app.hide-amounts .in-val,
-#app.hide-amounts .si-v,
-#app.hide-amounts .tx-a,
-#app.hide-amounts .rec-a,
-#app.hide-amounts .cat-amt,
-#app.hide-amounts .gc-cur,
-#app.hide-amounts .rh-a{filter:blur(8px);transition:filter .2s;-webkit-user-select:none;user-select:none}
-
 /* ── CONFIRM DIALOG (bottom sheet) ── */
 .cdlg-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:9000;display:flex;align-items:flex-end;justify-content:center}
 .cdlg{width:100%;max-width:393px;background:var(--p);border-radius:28px 28px 0 0;padding:24px 22px calc(40px + env(safe-area-inset-bottom,0px));animation:mUp .28s cubic-bezier(.22,1,.36,1)}
