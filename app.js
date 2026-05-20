@@ -175,6 +175,26 @@ function toast(msg) {
 function openM(id) { document.getElementById(id).classList.add('on'); }
 function closeM(id) { document.getElementById(id).classList.remove('on'); }
 
+// Универсальный диалог подтверждения (нижний лист)
+function confirmSheet({ title, text = '', okText = 'Удалить', danger = true, onOk }) {
+  const ov = document.createElement('div');
+  ov.className = 'cdlg-ov';
+  ov.innerHTML = `<div class="cdlg">
+    <div class="cdlg-t">${title}</div>
+    ${text ? `<div class="cdlg-s">${text}</div>` : ''}
+    <div class="cdlg-btns">
+      <button class="cdlg-cancel" type="button">Отмена</button>
+      <button class="cdlg-ok${danger ? ' danger' : ''}" type="button">${okText}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  ov.querySelector('.cdlg-cancel').addEventListener('click', close);
+  ov.querySelector('.cdlg-ok').addEventListener('click', () => { close(); if (onOk) onOk(); });
+  return ov;
+}
+
 // Close modal on overlay tap
 ['m-add','m-det','m-edit-tx','m-tuse','m-tadd','m-cadd','m-cedit','m-prof','m-gadd','m-gdet','m-radd','m-acct','m-piggy'].forEach(id => {
   document.getElementById(id).addEventListener('click', e => { if (e.target === document.getElementById(id)) closeM(id); });
@@ -727,13 +747,27 @@ document.getElementById('add-ok').addEventListener('click', () => {
 // ══════════════════════════════════════
 // TRANSACTIONS SCREEN
 // ══════════════════════════════════════
-let txF = 'all', txQ = '', txSort = 'newest';
+let txF = 'all', txQ = '', txSort = 'newest', txCatF = 'all';
+
+// Заполняем выпадающий фильтр категорий актуальным списком
+function fillTxCatFilter() {
+  const sel = document.getElementById('tx-cat-f');
+  if (!sel) return;
+  const cur = txCatF;
+  sel.innerHTML = '<option value="all">Все категории</option>' +
+    S.categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  // Сохраняем выбор, если категория ещё существует
+  sel.value = S.categories.some(c => c.id === cur) ? cur : 'all';
+  txCatF = sel.value;
+}
 
 function renderTx() {
+  fillTxCatFilter();
   let txs = [...S.transactions];
   if (txF === 'expense' || txF === 'income' || txF === 'transfer') txs = txs.filter(t => t.type === txF);
   else if (txF === 'cash') txs = txs.filter(t => t.account === 'cash');
   else if (txF === 'bank') txs = txs.filter(t => t.account === 'bank');
+  if (txCatF !== 'all') txs = txs.filter(t => t.category === txCatF);
   if (txQ) { const q = txQ.toLowerCase(); txs = txs.filter(t => (t.desc || '').toLowerCase().includes(q) || getCat(t.category).name.toLowerCase().includes(q) || (t.note || '').toLowerCase().includes(q)); }
   if (txSort === 'newest') txs.sort((a, b) => new Date(b.date) - new Date(a.date));
   else if (txSort === 'oldest') txs.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -758,6 +792,7 @@ document.querySelectorAll('#sc-transactions .chip').forEach(c => c.addEventListe
   document.querySelectorAll('#sc-transactions .chip').forEach(x => x.classList.remove('on'));
   c.classList.add('on'); txF = c.dataset.f; renderTx();
 }));
+document.getElementById('tx-cat-f').addEventListener('change', e => { txCatF = e.target.value; renderTx(); });
 document.getElementById('tx-q').addEventListener('input', e => { txQ = e.target.value; document.getElementById('tx-x').style.display = txQ ? '' : 'none'; renderTx(); });
 document.getElementById('tx-x').addEventListener('click', () => { document.getElementById('tx-q').value = ''; txQ = ''; document.getElementById('tx-x').style.display = 'none'; renderTx(); });
 document.getElementById('tx-sort-btn').addEventListener('click', () => {
@@ -772,12 +807,26 @@ document.getElementById('tx-sort-btn').addEventListener('click', () => {
 // ══════════════════════════════════════
 // STATS
 // ══════════════════════════════════════
-let statP = 'week';
+let statP = 'week', statFrom = '', statTo = '';
 
 document.querySelectorAll('.pt').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('.pt').forEach(x => x.classList.remove('on'));
-  b.classList.add('on'); statP = b.dataset.p; renderStats();
+  b.classList.add('on'); statP = b.dataset.p;
+  const range = document.getElementById('stat-range');
+  if (statP === 'custom') {
+    if (!statTo) statTo = today();
+    if (!statFrom) { const f = new Date(); f.setDate(f.getDate() - 30); statFrom = f.toISOString().split('T')[0]; }
+    document.getElementById('stat-from').value = statFrom;
+    document.getElementById('stat-to').value = statTo;
+    if (range) range.style.display = '';
+  } else if (range) { range.style.display = 'none'; }
+  renderStats();
 }));
+
+const statFromEl = document.getElementById('stat-from');
+if (statFromEl) statFromEl.addEventListener('change', e => { statFrom = e.target.value; renderStats(); });
+const statToEl = document.getElementById('stat-to');
+if (statToEl) statToEl.addEventListener('change', e => { statTo = e.target.value; renderStats(); });
 
 function getPTxs() {
   const n = new Date();
@@ -786,6 +835,11 @@ function getPTxs() {
     if (statP === 'week') { const w = new Date(n); w.setDate(n.getDate() - 7); return d >= w; }
     if (statP === 'month') return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
     if (statP === '3month') { const w = new Date(n); w.setMonth(n.getMonth() - 3); return d >= w; }
+    if (statP === 'custom') {
+      if (statFrom && t.date < statFrom) return false;
+      if (statTo && t.date > statTo) return false;
+      return true;
+    }
     return d.getFullYear() === n.getFullYear();
   });
 }
@@ -794,13 +848,18 @@ function renderStats() {
   const txs = getPTxs();
   const inc = txs.filter(t => t.type === 'income').reduce((a, t) => a + t.amount, 0);
   const exp = txs.filter(t => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
-  const PLBLS = { week: 'ЗА НЕДЕЛЮ', month: 'ЗА МЕСЯЦ', '3month': 'ЗА 3 МЕСЯЦА', year: 'ЗА ГОД' };
+  const PLBLS = { week: 'ЗА НЕДЕЛЮ', month: 'ЗА МЕСЯЦ', '3month': 'ЗА 3 МЕСЯЦА', year: 'ЗА ГОД', custom: 'ЗА ПЕРИОД' };
   document.getElementById('stp-lbl').textContent = PLBLS[statP];
   document.getElementById('stp-tot').textContent = fmt(inc - exp) + ' €';
   document.getElementById('stp-inc').textContent = fmt(inc) + ' €';
   document.getElementById('stp-exp').textContent = fmt(exp) + ' €';
   document.getElementById('stp-cnt').textContent = txs.length;
-  const days = { week: 7, month: 30, '3month': 90, year: 365 }[statP];
+  let days = { week: 7, month: 30, '3month': 90, year: 365 }[statP];
+  if (statP === 'custom') {
+    const f = statFrom ? new Date(statFrom) : null;
+    const t2 = statTo ? new Date(statTo) : new Date();
+    days = f ? Math.max(Math.round((t2 - f) / 86400000) + 1, 1) : 1;
+  }
   document.getElementById('st-avg').textContent = fmt(exp / Math.max(days, 1)) + ' €';
   const maxTx = [...txs].filter(t => t.type === 'expense').sort((a, b) => b.amount - a.amount)[0];
   document.getElementById('st-max').textContent = maxTx ? fmt(maxTx.amount) + ' €' : '0 €';
@@ -956,29 +1015,20 @@ function deleteCat(cid, fromModal = false) {
   if (!cat) return;
   if (BUILTIN.includes(cid)) { toast('⚠️ Нельзя удалить встроенную категорию'); return; }
   const txc = S.transactions.filter(t => t.category === cid).length;
-  const ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
-  ov.innerHTML = `<div style="width:100%;max-width:393px;background:var(--p);border-radius:28px 28px 0 0;padding:24px 22px 44px;animation:mUp .28s cubic-bezier(.22,1,.36,1)">
-    <div style="font-family:'Clash Display',sans-serif;font-size:18px;font-weight:700;margin-bottom:8px;color:var(--ink)">Удалить категорию?</div>
-    <div style="font-size:14px;color:var(--ink3);margin-bottom:${txc > 0 ? '8px' : '22px'}">${cat.icon} «${cat.name}»</div>
-    ${txc > 0 ? `<div style="font-size:13px;color:var(--am);font-weight:600;margin-bottom:22px">⚠️ ${txc} операций перейдут в «Другое»</div>` : ''}
-    <div style="display:flex;gap:10px">
-      <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--p2);color:var(--ink3);font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" onclick="this.closest('[style*=fixed]').remove()">Отмена</button>
-      <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--rd);color:#fff;font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" id="catdel-ok-${cid}">Удалить</button>
-    </div>
-  </div>`;
-  document.body.appendChild(ov);
-  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
-  document.getElementById(`catdel-ok-${cid}`).onclick = () => {
-    S.transactions.forEach(t => { if (t.category === cid) t.category = 'other'; });
-    S.categories = S.categories.filter(c => c.id !== cid);
-    save(); ov.remove();
-    if (fromModal) closeM('m-cedit');
-    renderCats(); renderFSCats();
-    document.getElementById('p-cats-cnt').textContent = S.categories.length + ' категорий';
-    document.getElementById('ps-cat').textContent = S.categories.length;
-    toast('🗑 Категория удалена');
-  };
+  confirmSheet({
+    title: 'Удалить категорию?',
+    text: `${cat.icon} «${cat.name}»${txc > 0 ? `<br><span style="color:var(--am);font-weight:600">⚠️ ${txc} операций перейдут в «Другое»</span>` : ''}`,
+    onOk: () => {
+      S.transactions.forEach(t => { if (t.category === cid) t.category = 'other'; });
+      S.categories = S.categories.filter(c => c.id !== cid);
+      save();
+      if (fromModal) closeM('m-cedit');
+      renderCats(); renderFSCats();
+      document.getElementById('p-cats-cnt').textContent = S.categories.length + ' категорий';
+      document.getElementById('ps-cat').textContent = S.categories.length;
+      toast('🗑 Категория удалена');
+    }
+  });
 }
 
 // ══════════════════════════════════════
@@ -1030,22 +1080,11 @@ function renderGoals() {
     e.stopPropagation();
     const g = S.goals.find(x => x.id === btn.dataset.gid);
     if (!g) return;
-    const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
-    ov.innerHTML = `<div style="width:100%;max-width:393px;background:var(--p);border-radius:28px 28px 0 0;padding:24px 22px 44px;animation:mUp .28s cubic-bezier(.22,1,.36,1)">
-      <div style="font-family:'Clash Display',sans-serif;font-size:18px;font-weight:700;margin-bottom:8px;color:var(--ink)">Удалить цель?</div>
-      <div style="font-size:14px;color:var(--ink3);margin-bottom:22px">${g.icon || '🎯'} «${g.name}» — ${fmt(g.current)} / ${fmt(g.target)} €</div>
-      <div style="display:flex;gap:10px">
-        <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--p2);color:var(--ink3);font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" onclick="this.closest('[style*=fixed]').remove()">Отмена</button>
-        <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--rd);color:#fff;font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" id="gdel-ok-${g.id}">Удалить</button>
-      </div>
-    </div>`;
-    document.body.appendChild(ov);
-    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
-    document.getElementById(`gdel-ok-${g.id}`).onclick = () => {
-      S.goals = S.goals.filter(x => x.id !== g.id);
-      save(); ov.remove(); renderGoals(); toast('🗑 Цель удалена');
-    };
+    confirmSheet({
+      title: 'Удалить цель?',
+      text: `${g.icon || '🎯'} «${g.name}» — ${fmt(g.current)} / ${fmt(g.target)} €`,
+      onOk: () => { S.goals = S.goals.filter(x => x.id !== g.id); save(); renderGoals(); toast('🗑 Цель удалена'); }
+    });
   }));
 }
 
@@ -1096,18 +1135,11 @@ function openGoalDet(gid) {
   document.getElementById('gdet-add').onclick = () => { closeM('m-gdet'); openGoalContrib(gid); };
   document.getElementById('gdet-del').onclick = () => {
     closeM('m-gdet');
-    const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
-    ov.innerHTML = `<div style="width:100%;max-width:393px;background:var(--p);border-radius:28px 28px 0 0;padding:24px 22px 44px;animation:mUp .28s cubic-bezier(.22,1,.36,1)">
-      <div style="font-family:'Clash Display',sans-serif;font-size:18px;font-weight:700;margin-bottom:8px;color:var(--ink)">Удалить цель?</div>
-      <div style="font-size:14px;color:var(--ink3);margin-bottom:22px">${g.icon || '🎯'} «${g.name}» — ${fmt(g.current)} / ${fmt(g.target)} €</div>
-      <div style="display:flex;gap:10px">
-        <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--p2);color:var(--ink3);font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" onclick="this.closest('[style*=fixed]').remove()">Отмена</button>
-        <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--rd);color:#fff;font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" id="gd2-ok">Удалить</button>
-      </div></div>`;
-    document.body.appendChild(ov);
-    ov.addEventListener('click', e => { if (e.target===ov) ov.remove(); });
-    document.getElementById('gd2-ok').onclick = () => { S.goals = S.goals.filter(x=>x.id!==gid); save(); ov.remove(); renderGoals(); toast('🗑 Цель удалена'); };
+    confirmSheet({
+      title: 'Удалить цель?',
+      text: `${g.icon || '🎯'} «${g.name}» — ${fmt(g.current)} / ${fmt(g.target)} €`,
+      onOk: () => { S.goals = S.goals.filter(x => x.id !== gid); save(); renderGoals(); toast('🗑 Цель удалена'); }
+    });
   };
   openM('m-gdet');
 }
@@ -1194,23 +1226,11 @@ function renderRec() {
     e.preventDefault();
     const r = S.recurring.find(x => x.id === btn.dataset.rid);
     if (!r) return;
-    // Кастомный попап вместо confirm()
-    const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
-    ov.innerHTML = `<div style="width:100%;max-width:393px;background:var(--p);border-radius:28px 28px 0 0;padding:24px 22px 44px;animation:mUp .28s cubic-bezier(.22,1,.36,1)">
-      <div style="font-family:'Clash Display',sans-serif;font-size:18px;font-weight:700;margin-bottom:8px">Удалить платёж?</div>
-      <div style="font-size:14px;color:var(--ink3);margin-bottom:20px">«${r.name}» — ${fmt(r.amount)} €</div>
-      <div style="display:flex;gap:10px">
-        <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--p2);color:var(--ink3);font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" onclick="this.closest('div[style*=fixed]').remove()">Отмена</button>
-        <button id="rec-del-ok-${r.id}" style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--rd);color:#fff;font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Удалить</button>
-      </div>
-    </div>`;
-    document.body.appendChild(ov);
-    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
-    document.getElementById(`rec-del-ok-${r.id}`).onclick = () => {
-      S.recurring = S.recurring.filter(x => x.id !== r.id);
-      save(); ov.remove(); renderRec(); toast('🗑 Платёж удалён');
-    };
+    confirmSheet({
+      title: 'Удалить платёж?',
+      text: `«${r.name}» — ${fmt(r.amount)} €`,
+      onOk: () => { S.recurring = S.recurring.filter(x => x.id !== r.id); save(); renderRec(); toast('🗑 Платёж удалён'); }
+    });
   }));
 }
 
@@ -1288,27 +1308,19 @@ let tuseId = null;
 function deleteTmpl(id, afterDelete) {
   const t = S.templates.find(x => x.id === id);
   if (!t) return;
-  const ov = document.createElement('div');
-  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
-  ov.innerHTML = `<div style="width:100%;max-width:393px;background:var(--p);border-radius:28px 28px 0 0;padding:24px 22px 44px;animation:mUp .28s cubic-bezier(.22,1,.36,1)">
-    <div style="font-family:'Clash Display',sans-serif;font-size:18px;font-weight:700;margin-bottom:8px;color:var(--ink)">Удалить шаблон?</div>
-    <div style="font-size:14px;color:var(--ink3);margin-bottom:22px">${t.icon || '⚡'} «${t.name}» — ${t.type === 'income' ? '+' : '−'}${fmt(t.amount)} €</div>
-    <div style="display:flex;gap:10px">
-      <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--p2);color:var(--ink3);font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" onclick="this.closest('[style*=fixed]').remove()">Отмена</button>
-      <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--rd);color:#fff;font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" id="tmpl-del-ok-${id}">Удалить</button>
-    </div>
-  </div>`;
-  document.body.appendChild(ov);
-  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
-  document.getElementById(`tmpl-del-ok-${id}`).onclick = () => {
-    S.templates = S.templates.filter(x => x.id !== id);
-    save(); ov.remove();
-    renderTemplates(); renderFSTemplates();
-    const cnt = document.getElementById('p-tmpl-cnt');
-    if (cnt) cnt.textContent = S.templates.length + ' шаблонов';
-    toast('🗑 Шаблон удалён');
-    afterDelete?.();
-  };
+  confirmSheet({
+    title: 'Удалить шаблон?',
+    text: `${t.icon || '⚡'} «${t.name}» — ${t.type === 'income' ? '+' : '−'}${fmt(t.amount)} €`,
+    onOk: () => {
+      S.templates = S.templates.filter(x => x.id !== id);
+      save();
+      renderTemplates(); renderFSTemplates();
+      const cnt = document.getElementById('p-tmpl-cnt');
+      if (cnt) cnt.textContent = S.templates.length + ' шаблонов';
+      toast('🗑 Шаблон удалён');
+      afterDelete?.();
+    }
+  });
 }
 
 function buildTmplHTML(t) {
@@ -1966,21 +1978,11 @@ function openDebtPay(id){const d=(S.debts||[]).find(x=>x.id===id);if(!d)return;c
 function deleteDebt(id){
   const d=(S.debts||[]).find(x=>x.id===id);
   if(!d)return;
-  const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
-  ov.innerHTML=`<div style="width:100%;max-width:393px;background:var(--p);border-radius:28px 28px 0 0;padding:24px 22px 44px;animation:mUp .28s cubic-bezier(.22,1,.36,1)">
-    <div style="font-family:'Clash Display',sans-serif;font-size:18px;font-weight:700;margin-bottom:8px;color:var(--ink)">Удалить долг?</div>
-    <div style="font-size:14px;color:var(--ink3);margin-bottom:22px">«${d.name}» — ${fmt(d.amount)} €</div>
-    <div style="display:flex;gap:10px">
-      <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--p2);color:var(--ink3);font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" onclick="this.closest('[style*=fixed]').remove()">Отмена</button>
-      <button style="flex:1;padding:14px;border-radius:14px;border:none;background:var(--rd);color:#fff;font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer" id="debt-del-ok-${id}">Удалить</button>
-    </div>
-  </div>`;
-  document.body.appendChild(ov);
-  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
-  document.getElementById(`debt-del-ok-${id}`).onclick=()=>{
-    S.debts=(S.debts||[]).filter(x=>x.id!==id);save();ov.remove();renderDebts();toast('🗑 Долг удалён');
-  };
+  confirmSheet({
+    title: 'Удалить долг?',
+    text: `«${d.name}» — ${fmt(d.amount)} €`,
+    onOk: () => { S.debts=(S.debts||[]).filter(x=>x.id!==id); save(); renderDebts(); toast('🗑 Долг удалён'); }
+  });
 }
 document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('#debt-tabs .cf').forEach(b=>b.addEventListener('click',()=>{debtFilter=b.dataset.dt;renderDebts();}));

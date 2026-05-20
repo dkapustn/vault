@@ -90,6 +90,9 @@
     <button class="chip" data-f="cash">💵 Нал</button>
     <button class="chip" data-f="bank">🏦 Банк</button>
   </div>
+  <div style="padding:0 22px 14px">
+    <select class="inp" id="tx-cat-f" style="padding-top:11px;padding-bottom:11px;font-size:14px"><option value="all">Все категории</option></select>
+  </div>
   <div class="txl" id="all-txl"></div>
 </div>
 
@@ -109,6 +112,13 @@
     <button class="pt" data-p="month">Месяц</button>
     <button class="pt" data-p="3month">3 мес</button>
     <button class="pt" data-p="year">Год</button>
+    <button class="pt" data-p="custom">Период</button>
+  </div>
+  <div id="stat-range" style="display:none;padding:0 16px 16px">
+    <div style="display:flex;gap:10px">
+      <div style="flex:1"><div class="fl">С</div><input class="inp" id="stat-from" type="date" style="padding-top:11px;padding-bottom:11px"></div>
+      <div style="flex:1"><div class="fl">По</div><input class="inp" id="stat-to" type="date" style="padding-top:11px;padding-bottom:11px"></div>
+    </div>
   </div>
   <div class="sg4">
     <div class="s4"><div class="s4-l">Ср./день</div><div class="s4-v" id="st-avg">0 €</div><div class="s4-s">расходов</div></div>
