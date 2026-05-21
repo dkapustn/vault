@@ -142,7 +142,7 @@ textarea.inp{resize:none;height:78px;line-height:1.5}
 .accts{display:flex;gap:10px;padding:0 22px;margin-bottom:20px}
 .ac{flex:1;border-radius:20px;padding:16px;position:relative;overflow:hidden;cursor:pointer;transition:.15s}
 .ac:active{transform:scale(.97)}
-.ac.cash{background:#2c2c2e;color:#F5F4F0;border:1px solid rgba(255,255,255,.1)}
+.ac.cash{background:linear-gradient(135deg,#0B6E4F,#1FA463);color:#fff;border:1px solid rgba(255,255,255,.12)}
 .ac.bank{background:linear-gradient(135deg,#1A2980,#26D0CE);color:#fff}
 .ac-lbl{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;opacity:.55;margin-bottom:6px}
 .ac-amt{font-family:'Clash Display',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.8px;line-height:1;margin-bottom:3px}
@@ -462,7 +462,7 @@ nav{background:rgba(17,17,19,.96)!important;border-color:rgba(255,255,255,.08)}
 .hst-sv{color:#F5F4F0}
 
 /* Account cards */
-.ac.cash{background:#2c2c2e!important;color:#F5F4F0}
+.ac.cash{background:linear-gradient(135deg,#0B6E4F,#1FA463)!important;color:#fff;border:1px solid rgba(255,255,255,.12)}
 .ac-lbl{color:rgba(255,255,255,.5)}
 
 /* Inputs */
