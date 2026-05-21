@@ -659,10 +659,15 @@ mark{background:rgba(240,144,10,.35)}
 .dbt-amt.owed{color:#4FFFB0}
 .dbt-remain-lbl{color:#6e6e73}
 .dbt-prog-bg{background:#2c2c2e}
-.dbt-sum{background:#1c1c1e;border-color:rgba(255,255,255,.07)}
-.dbt-sum-lbl{color:#6e6e73}
-.dbt-sum-net{color:#F5F4F0}
-.dbt-sum-sep{background:rgba(255,255,255,.07)}
+.dbt-sum{display:flex;align-items:center;margin:0 16px 16px;padding:16px;background:#1c1c1e;border:1px solid rgba(255,255,255,.07);border-radius:20px}
+.dbt-sum-col{flex:1;min-width:0}
+.dbt-sum-lbl{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#6e6e73;margin-bottom:5px}
+.dbt-sum-amt{font-family:'Clash Display',sans-serif;font-size:17px;font-weight:700;letter-spacing:-.4px;line-height:1}
+.dbt-sum-amt.owe{color:#FF6B7A}
+.dbt-sum-amt.owed{color:#4FFFB0}
+.dbt-sum-net{font-family:'Clash Display',sans-serif;font-size:17px;font-weight:700;letter-spacing:-.4px;line-height:1;color:#F5F4F0}
+.dbt-sum-cnt{font-size:10px;color:#6e6e73;margin-top:4px;font-weight:600}
+.dbt-sum-sep{width:1px;align-self:stretch;background:rgba(255,255,255,.07);margin:0 12px;flex-shrink:0}
 .dbt-dl{color:#3a3a3c}
 .dbt-dl.overdue{color:#FF6B7A}
 .dbt-actions{border-color:rgba(255,255,255,.07)}
