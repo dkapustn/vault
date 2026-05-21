@@ -1,9 +1,16 @@
 // Регистрируем service worker (sw.js) — кэширует приложение для офлайн-работы.
-// Работает только по http(s) (например, GitHub Pages); по file:// тихо игнорируется.
+// В продакшене (например, GitHub Pages) включаем SW, а в локальной разработке
+// (localhost) — наоборот, снимаем регистрацию, чтобы кэш не мешал отладке.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
+  const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+  if (isLocal) {
+    navigator.serviceWorker.getRegistrations()
+      .then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+  } else {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
 }
 
 

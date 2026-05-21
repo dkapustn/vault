@@ -1,3 +1,7 @@
 .DS_Store
 Thumbs.db
 *.log
+
+# Local preview tooling (not part of the app)
+serve.ps1
+.claude/
