@@ -458,8 +458,11 @@ function renderHome() {
   document.getElementById('h-name').textContent = n;
   document.getElementById('h-date').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  const inc = S.transactions.filter(t => t.type === 'income').reduce((a, t) => a + t.amount, 0);
-  const exp = S.transactions.filter(t => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
+  // На главной показываем суммы за ТЕКУЩИЙ МЕСЯЦ (а не за всю историю —
+  // так было запутанно). Общий баланс — это деньги на счетах прямо сейчас.
+  const monthTxs = getMonthTxs();
+  const inc = monthTxs.filter(t => t.type === 'income').reduce((a, t) => a + t.amount, 0);
+  const exp = monthTxs.filter(t => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
   const cash = acctBal('cash'), bank = acctBal('bank');
 
   // Копилка — это спрятанные деньги: они списаны с банка и НЕ входят
@@ -484,22 +487,20 @@ function renderHome() {
   qaEl.innerHTML = qas.map((q, i) => `<div class="qa-i" data-qi="${i}"><div class="qa-ic" style="background:${q.bg}">${q.i}</div><div class="qa-l">${q.l}</div></div>`).join('');
   qaEl.querySelectorAll('.qa-i').forEach((el, i) => el.addEventListener('click', qas[i].fn));
 
-  // Insights
-  const mTxs = getMonthTxs();
-  const mExp = mTxs.filter(t => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
-  const mInc = mTxs.filter(t => t.type === 'income').reduce((a, t) => a + t.amount, 0);
+  // Insights: используем уже посчитанные за месяц значения inc/exp,
+  // не дублируем баланс счетов (он уже виден в карточках выше).
   const dom = new Date().getDate();
-  const avgDay = dom > 0 && mExp > 0 ? mExp / dom : 0;
+  const avgDay = dom > 0 && exp > 0 ? exp / dom : 0;
   const lmDate = new Date(); lmDate.setDate(1); lmDate.setMonth(lmDate.getMonth() - 1);
   const lmExp = S.transactions.filter(t => { const d = new Date(t.date); return d.getMonth() === lmDate.getMonth() && d.getFullYear() === lmDate.getFullYear() && t.type === 'expense'; }).reduce((a, t) => a + t.amount, 0);
-  const diff = lmExp > 0 ? (mExp - lmExp) / lmExp * 100 : null;
-  const sr = mInc > 0 ? Math.round((mInc - mExp) / mInc * 100) : 0;
+  const diff = lmExp > 0 ? (exp - lmExp) / lmExp * 100 : null;
+  const sr = inc > 0 ? Math.round((inc - exp) / inc * 100) : 0;
+  const net = inc - exp;
   const insList = [
     { i: '📅', l: 'Ср. в день', v: fmt(avgDay) + ' €', tr: null },
-    { i: '💹', l: 'Норма сбережений', v: sr + '%', tr: sr > 20 ? { cls: 'up', t: 'Отлично' } : sr > 0 ? { cls: 'neu', t: 'Норма' } : { cls: 'dn', t: 'В минус' } },
-    { i: '📉', l: 'Расход за месяц', v: fmt(mExp) + ' €', tr: diff !== null ? { cls: diff > 0 ? 'dn' : 'up', t: (diff > 0 ? '+' : '') + Math.round(diff) + '%' } : null },
-    { i: '💵', l: 'Наличные', v: fmt(cash) + ' €', tr: null },
-    { i: '🏦', l: 'Банк', v: fmt(bank) + ' €', tr: null },
+    { i: '💹', l: 'Норма сбережений', v: sr + '%', tr: sr > 20 ? { cls: 'up', t: 'Отлично' } : sr > 0 ? { cls: 'neu', t: 'Норма' } : inc > 0 ? { cls: 'dn', t: 'В минус' } : null },
+    { i: net >= 0 ? '💰' : '⚠️', l: 'Баланс месяца', v: (net >= 0 ? '+' : '') + fmt(net) + ' €', tr: null },
+    { i: '📉', l: 'Расход за месяц', v: fmt(exp) + ' €', tr: diff !== null ? { cls: diff > 0 ? 'dn' : 'up', t: (diff > 0 ? '+' : '') + Math.round(diff) + '%' } : null },
   ];
   document.getElementById('h-ins').innerHTML = insList.map(it => `<div class="in-c"><div class="in-ico">${it.i}</div><div class="in-lbl">${it.l}</div><div class="in-val">${it.v}</div>${it.tr ? `<div class="tr ${it.tr.cls}">${it.tr.t}</div>` : ''}</div>`).join('');
 
@@ -835,20 +836,28 @@ if (statFromEl) statFromEl.addEventListener('change', e => { statFrom = e.target
 const statToEl = document.getElementById('stat-to');
 if (statToEl) statToEl.addEventListener('change', e => { statTo = e.target.value; renderStats(); });
 
+// Единый источник правды для границ выбранного периода
+function periodRange() {
+  const now = new Date();
+  let start, end = new Date(now); end.setHours(23, 59, 59, 999);
+  if (statP === 'week') { start = new Date(now); start.setDate(now.getDate() - 6); start.setHours(0,0,0,0); }
+  else if (statP === 'month') { start = new Date(now.getFullYear(), now.getMonth(), 1); }
+  else if (statP === '3month') { start = new Date(now); start.setMonth(now.getMonth() - 2); start.setDate(1); start.setHours(0,0,0,0); }
+  else if (statP === 'year') { start = new Date(now.getFullYear(), 0, 1); }
+  else if (statP === 'custom') {
+    start = statFrom ? new Date(statFrom + 'T00:00:00') : new Date(now.getFullYear(), now.getMonth(), 1);
+    end = statTo ? new Date(statTo + 'T23:59:59') : end;
+  } else { start = new Date(now.getFullYear(), 0, 1); }
+  const days = Math.max(Math.floor((end - start) / 86400000) + 1, 1);
+  return { start, end, days };
+}
+
+const dStr = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+
 function getPTxs() {
-  const n = new Date();
-  return S.transactions.filter(t => {
-    const d = new Date(t.date);
-    if (statP === 'week') { const w = new Date(n); w.setDate(n.getDate() - 7); return d >= w; }
-    if (statP === 'month') return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
-    if (statP === '3month') { const w = new Date(n); w.setMonth(n.getMonth() - 3); return d >= w; }
-    if (statP === 'custom') {
-      if (statFrom && t.date < statFrom) return false;
-      if (statTo && t.date > statTo) return false;
-      return true;
-    }
-    return d.getFullYear() === n.getFullYear();
-  });
+  const { start, end } = periodRange();
+  const s = dStr(start), e = dStr(end);
+  return S.transactions.filter(t => t.date >= s && t.date <= e);
 }
 
 function renderStats() {
@@ -857,23 +866,21 @@ function renderStats() {
   const exp = txs.filter(t => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
   const PLBLS = { week: 'ЗА НЕДЕЛЮ', month: 'ЗА МЕСЯЦ', '3month': 'ЗА 3 МЕСЯЦА', year: 'ЗА ГОД', custom: 'ЗА ПЕРИОД' };
   document.getElementById('stp-lbl').textContent = PLBLS[statP];
+  const { start, end, days } = periodRange();
+  const fmtD = d => d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  const rangeEl = document.getElementById('stp-range');
+  if (rangeEl) rangeEl.textContent = fmtD(start) + ' — ' + fmtD(end);
   document.getElementById('stp-tot').textContent = fmt(inc - exp) + ' €';
   document.getElementById('stp-inc').textContent = fmt(inc) + ' €';
   document.getElementById('stp-exp').textContent = fmt(exp) + ' €';
   document.getElementById('stp-cnt').textContent = txs.length;
-  let days = { week: 7, month: 30, '3month': 90, year: 365 }[statP];
-  if (statP === 'custom') {
-    const f = statFrom ? new Date(statFrom) : null;
-    const t2 = statTo ? new Date(statTo) : new Date();
-    days = f ? Math.max(Math.round((t2 - f) / 86400000) + 1, 1) : 1;
-  }
   document.getElementById('st-avg').textContent = fmt(exp / Math.max(days, 1)) + ' €';
   const maxTx = [...txs].filter(t => t.type === 'expense').sort((a, b) => b.amount - a.amount)[0];
   document.getElementById('st-max').textContent = maxTx ? fmt(maxTx.amount) + ' €' : '0 €';
   document.getElementById('st-maxs').textContent = maxTx ? (maxTx.desc || getCat(maxTx.category).name) : '—';
   document.getElementById('st-sav').textContent = fmt(inc - exp) + ' €';
   document.getElementById('st-rt').textContent = inc > 0 ? Math.round((inc - exp) / inc * 100) + '%' : '0%';
-  renderBars(txs); renderRing(txs); renderLine();
+  renderBars(txs); renderRing(txs); renderLine(txs);
   const top = [...txs].filter(t => t.type === 'expense').sort((a, b) => b.amount - a.amount).slice(0, 5);
   const tl = document.getElementById('top-txl');
   tl.innerHTML = top.length ? top.map(txHTML).join('') : '<div class="empty" style="margin:0 22px;padding:28px 0"><p>Нет данных</p></div>';
@@ -905,8 +912,11 @@ function renderRing(txs) {
   leg.innerHTML = sorted.map(([id, amt]) => { const cat = getCat(id); return `<div class="rli"><div class="rl-dot" style="background:${cat.color}"></div><div class="rl-n">${cat.icon} ${cat.name}</div><div class="rl-p">${Math.round(amt / total * 100)}%</div></div>`; }).join('');
 }
 
-function renderLine() {
-  const sorted = [...S.transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+function renderLine(periodTxs) {
+  // Динамика баланса В РАМКАХ выбранного периода (а не за всю историю):
+  // строим накопительную сумму доход − расход начиная с нуля.
+  const src = periodTxs && periodTxs.length ? periodTxs : [];
+  const sorted = [...src].sort((a, b) => new Date(a.date) - new Date(b.date));
   let run = 0; const pts = [];
   sorted.forEach(t => { run += t.type === 'income' ? t.amount : t.type === 'expense' ? -t.amount : 0; pts.push(run); });
   const svg = document.getElementById('line-svg');
