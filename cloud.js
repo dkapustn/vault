@@ -65,41 +65,64 @@
     } catch (e) { console.warn('[cloud] pull throw', e); return null; }
   }
 
-  async function push(state) {
-    if (!window.cloudUser) return;
+  let lastState = null;
+  let dirty = false;          // есть несохранённые изменения
+  let pushing = false;        // идёт запрос (защита от гонки)
+  let warnedAt = 0;           // троттлинг тоста об ошибке
+
+  // Возвращает true при успехе. При неудаче оставляет dirty=true,
+  // чтобы повторить позже (при возврате сети / следующем flush).
+  async function push() {
+    if (!window.cloudUser || !lastState || pushing) return false;
+    pushing = true;
+    const snapshot = lastState;
     try {
       const { error } = await sb.from(TABLE).upsert({
         user_id: window.cloudUser.id,
-        state,
+        state: snapshot,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
-      if (error) console.warn('[cloud] push error', error);
-    } catch (e) { console.warn('[cloud] push throw', e); }
+      pushing = false;
+      if (error) { onPushFail(error); return false; }
+      // Сбрасываем dirty только если за время запроса не появилось новых правок.
+      if (lastState === snapshot) dirty = false;
+      return true;
+    } catch (e) {
+      pushing = false;
+      onPushFail(e);
+      return false;
+    }
   }
 
-  let lastState = null;
-  let dirty = false;
+  function onPushFail(err) {
+    console.warn('[cloud] push failed', err);
+    // dirty остаётся true → повторим. Предупреждаем не чаще раза в 20 сек.
+    if (Date.now() - warnedAt > 20000) {
+      warnedAt = Date.now();
+      window.toast?.('⚠️ Нет связи — изменения сохранятся, когда появится сеть');
+    }
+  }
 
   window.cloudPushDebounced = function (state) {
     if (!window.cloudUser) return;
     lastState = state;
     dirty = true;
     clearTimeout(pushTimer);
-    pushTimer = setTimeout(() => { dirty = false; push(state); }, 800);
+    pushTimer = setTimeout(push, 800);
   };
 
-  // Немедленно дописать отложенную запись (вызывается при уходе со страницы).
+  // Немедленно дописать отложенную запись (уход со страницы / возврат сети).
   window.cloudFlush = function () {
     if (!dirty || !window.cloudUser || !lastState) return;
     clearTimeout(pushTimer);
-    dirty = false;
-    // keepalive позволяет запросу долететь, даже если вкладка закрывается.
-    push(lastState);
+    push();
   };
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') window.cloudFlush();
   });
   window.addEventListener('pagehide', () => window.cloudFlush());
+  // Сеть вернулась — досылаем несохранённое.
+  window.addEventListener('online', () => { warnedAt = 0; window.cloudFlush(); });
 
   function wipeLocal() {
     try { localStorage.removeItem('vault_v6'); } catch (e) {}

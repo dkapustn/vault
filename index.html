@@ -543,6 +543,12 @@
       <div class="ff"><div class="fl">Частота</div><select class="inp" id="radd-freq"><option value="monthly">Ежемесячно</option><option value="weekly">Еженедельно</option><option value="yearly">Ежегодно</option><option value="quarterly">Квартально</option></select></div>
       <div class="ff"><div class="fl">День списания</div><input class="inp" id="radd-day" type="number" min="1" max="31" placeholder="1"></div>
     </div>
+    <div class="ff"><div class="fl">Счёт списания</div>
+      <div class="ap" id="radd-ap">
+        <button class="apb on" type="button" data-ra="cash">💵 Наличные</button>
+        <button class="apb" type="button" data-ra="bank">🏦 Банк</button>
+      </div>
+    </div>
     <div class="ff"><div class="fl">Категория</div><div class="cpkr" id="radd-cat"></div></div>
     <div class="ff"><div class="fl">Иконка</div><div class="eg" id="radd-emoji"></div></div>
     <button class="btn btn-k" id="radd-ok">Добавить</button>
