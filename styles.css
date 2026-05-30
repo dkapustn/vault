@@ -387,9 +387,9 @@ textarea.inp{resize:none;height:78px;line-height:1.5}
 /* ── PROFILE ── */
 .prof-top{padding:20px 22px 20px;display:flex;align-items:center;gap:16px}
 .av{width:68px;height:68px;border-radius:22px;background:#2c2c2e;display:flex;align-items:center;justify-content:center;font-family:'Clash Display',sans-serif;font-size:26px;font-weight:700;color:#fff;flex-shrink:0;position:relative}
-.av-emoji{font-size:38px;line-height:1}
 .av.has-img{background-size:cover;background-position:center;color:transparent}
-.egc.av-letter{font-family:'Clash Display',sans-serif;font-weight:700;font-size:18px;color:var(--ink)}
+.h-av{width:42px;height:42px;border-radius:13px;background:#2c2c2e;display:flex;align-items:center;justify-content:center;font-family:'Clash Display',sans-serif;font-weight:700;font-size:18px;color:#fff;cursor:pointer;flex-shrink:0;background-size:cover;background-position:center}
+.h-av:active{transform:scale(.94)}
 /* Avatar picker — только фото */
 .eg.av-picker{display:flex;align-items:center;gap:16px;flex-wrap:nowrap}
 .avp-prev{width:72px;height:72px;border-radius:22px;flex-shrink:0;background:#2c2c2e;display:flex;align-items:center;justify-content:center;font-family:'Clash Display',sans-serif;font-weight:700;font-size:28px;color:#fff;background-size:cover;background-position:center}

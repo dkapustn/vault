@@ -21,7 +21,8 @@
 <!-- ═══════════════ HOME ═══════════════ -->
 <div class="sc on" id="sc-home">
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:10px">
+    <div style="display:flex;align-items:center;gap:11px">
+      <div class="h-av" id="h-av" onclick="nav('profile')">Д</div>
       <div>
         <div class="sub" id="h-greet">Доброе утро,</div>
         <div class="hd" id="h-name">Денис</div>
@@ -267,8 +268,6 @@
     <div class="si" onclick="openPiggy()"><div class="si-ic" style="background:#1a0533">🐷</div><div class="si-t"><div class="si-n">Секретная копилка</div><div class="si-s">Скрытые накопления</div></div><div class="si-r"><div class="si-v" id="p-piggy">0,00 €</div></div></div>
   </div></div>
   <div class="sg"><div class="sg-lbl">Настройки</div><div class="slist">
-    <div class="si" style="cursor:default"><div class="si-ic" style="background:#152030">🌐</div><div class="si-t"><div class="si-n">Язык</div><div class="si-s">Язык интерфейса</div></div><div class="si-r"><select id="set-lang" class="inp" style="width:auto;padding:9px 30px 9px 12px;font-size:14px"><option value="ru">🇷🇺 Русский</option><option value="en" disabled>🇬🇧 English (скоро)</option></select></div></div>
-    <div class="si" style="cursor:default"><div class="si-ic" style="background:#0a2018">💱</div><div class="si-t"><div class="si-n">Валюта</div><div class="si-s">Символ и формат</div></div><div class="si-r"><select id="set-cur" class="inp" style="width:auto;padding:9px 30px 9px 12px;font-size:14px"><option value="EUR">€ Евро</option><option value="USD" disabled>$ USD (скоро)</option><option value="RUB" disabled>₽ RUB (скоро)</option></select></div></div>
     <div class="si" id="set-sound-row"><div class="si-ic" style="background:#1a1830">🔊</div><div class="si-t"><div class="si-n">Звук операций</div><div class="si-s">Тихий сигнал при добавлении</div></div><div class="si-r"><div class="tog" id="set-sound"></div></div></div>
   </div></div>
   <div class="sg" id="acct-section" style="display:none"><div class="sg-lbl">Аккаунт</div><div class="slist">
@@ -624,10 +623,6 @@
     <div class="ff"><div class="fl">Как тебя зовут?</div><input class="inp" id="onb-name" placeholder="Имя" autocomplete="off"></div>
     <div class="ff"><div class="fl">Аватар</div><div class="eg" id="onb-emoji"></div></div>
     <div class="ff" id="onb-email-ff"><div class="fl">Email аккаунта</div><div class="inp inp-ro" id="onb-email-ro">—</div></div>
-    <div class="onb-row">
-      <div class="ff" style="flex:1;margin-bottom:0"><div class="fl">Язык</div><select class="inp" id="onb-lang"><option value="ru">🇷🇺 Русский</option><option value="en" disabled>🇬🇧 English (скоро)</option></select></div>
-      <div class="ff" style="flex:1;margin-bottom:0"><div class="fl">Валюта</div><select class="inp" id="onb-cur"><option value="EUR">€ Евро</option><option value="USD" disabled>$ USD (скоро)</option><option value="RUB" disabled>₽ RUB (скоро)</option></select></div>
-    </div>
     <button class="btn btn-k" id="onb-go" style="margin-top:20px">Начать →</button>
     <div class="onb-foot">🔒 Данные хранятся только на твоём устройстве</div>
   </div>

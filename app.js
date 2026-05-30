@@ -20,7 +20,6 @@ if ('serviceWorker' in navigator) {
 // ══════════════════════════════════════
 const ALL_EMO = ['🏠','🚗','🍕','☕','🛍️','💊','🎬','✈️','📚','🎮','💪','🐾','🎵','👗','🍺','🍔','🛒','💼','💻','📱','⚽','🎓','🏖️','🎁','💅','🧴','⚡','🌿','🎨','🔧','🎭','🏋️','🍣','🥗','🎪','🎯','🏦','🚂','🎸','🍜'];
 const GOAL_EMO = ['🎯','✈️','🏠','🚗','💍','🎓','💻','📱','🏖️','🎸','💰','🛳️','🏔️','🌍','🏡','⛵'];
-const AVATAR_EMO = ['🙂','😎','🤓','🥳','🤩','😺','🐶','🦊','🐼','🐯','🦁','🐵','🐰','🦄','🐸','🐧','🦉','🐺','🤖','👽','🎃','🌟','🔥','💎','🚀','⚡','🍀','🌈'];
 const COLORS = ['#E8304A','#FF6B35','#F0900A','#00B876','#2B6FED','#8B5CF6','#EC4899','#14B8A6','#6366F1','#D97706','#64748B','#10B981'];
 const FREQ = {monthly:'Ежемесячно',weekly:'Еженедельно',yearly:'Ежегодно',quarterly:'Ежеквартально',daily:'Ежедневно'};
 const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
@@ -109,7 +108,6 @@ function parseState(raw) {
       goals: p.goals || [],
       recurring: p.recurring || [],
       templates: p.templates || [],
-      notifications: p.notifications || false,
       settings: p.settings || {},
       notifs: p.notifs || [],
       debts: p.debts || [],
@@ -137,7 +135,7 @@ function getDefaultState() {
     accounts: { cash: 0, bank: 0 },
     transactions: [], categories: JSON.parse(JSON.stringify(DEF_CATS)),
     goals: [], recurring: [], templates: [],
-    notifications: false, settings: {}, notifs: [],
+    settings: {}, notifs: [],
     debts: [],
     piggy: { balance: 0, history: [], pin: null },
     createdAt: new Date().toISOString(),
@@ -355,9 +353,6 @@ function buildColor(elId, selected = null) {
 function getColor(elId) {
   return document.querySelector(`#${elId} .clr.on`)?.dataset.c || '#64748B';
 }
-// preSelect — оставляем для совместимости, но они теперь не нужны
-function preSelectColor(elId, color) { buildColor(elId, color); }
-function preSelectEmoji(elId, emoji) { buildEmoji(elId, ALL_EMO, emoji); }
 
 // ── CAT PICKER ────────────────────────
 function buildCatPicker(elId, type, selected = null) {
@@ -518,9 +513,21 @@ function autoNotifs() {
 // HOME
 // ══════════════════════════════════════
 function renderHome() {
-  const n = S.profile.name.split(' ')[0];
+  const n = (S.profile.name || 'A').split(' ')[0];
   document.getElementById('h-greet').textContent = greeting();
   document.getElementById('h-name').textContent = n;
+  const hav = document.getElementById('h-av');
+  if (hav) {
+    if (isImgAvatar(S.profile.avatar)) {
+      hav.classList.add('has-img');
+      hav.style.backgroundImage = `url('${S.profile.avatar}')`;
+      hav.textContent = '';
+    } else {
+      hav.classList.remove('has-img');
+      hav.style.backgroundImage = '';
+      hav.textContent = (S.profile.name || 'A')[0].toUpperCase();
+    }
+  }
   document.getElementById('h-date').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
 
   // На главной показываем суммы за ТЕКУЩИЙ МЕСЯЦ (а не за всю историю —
@@ -618,7 +625,7 @@ function txHTML(t) {
       <div class="tx-m">
         <span class="tx-c">${highlight(esc(isTra ? 'Банкомат' : cat.name), q)}</span>
         <span class="tx-d">· ${dateLabel(t.date)}</span>
-        ${isTra ? `<span class="tx-d">· ${t.account==='cash'?'💵':'🏦'}→${t.toAcct==='piggy'?'🐷':t.toAcct==='cash'?'💵':'🏦'}</span>` : `<span class="tx-d">${t.account === 'cash' ? '· 💵' : '· 🏦'}</span>`}
+        ${isTra ? `<span class="tx-d">· ${t.account==='cash'?'💵':'🏦'}→${t.toAcct==='cash'?'💵':'🏦'}</span>` : `<span class="tx-d">${t.account === 'cash' ? '· 💵' : '· 🏦'}</span>`}
         ${t.isRec ? '<span class="pill rec" style="padding:2px 6px;font-size:9px">🔁</span>' : ''}
       </div>
     </div>
@@ -771,8 +778,6 @@ document.querySelectorAll('#add-type-sw .tsw').forEach(b => b.addEventListener('
   updateTransferUI();
 }));
 
-// Listener for "from"→"to" sync is attached inside openAddM after
-// buildAcctPicker (it clones nodes, so module-load handlers are lost).
 
 document.getElementById('add-ok').addEventListener('click', () => {
   const amount = parseFloat(document.getElementById('add-amt').value);
@@ -1750,18 +1755,6 @@ function initSettings() {
   S.settings = S.settings || {};
   const sets = S.settings;
 
-  // Язык и валюта (пока заглушки — выбор сохраняется)
-  const langSel = document.getElementById('set-lang');
-  if (langSel) {
-    langSel.value = sets.lang || 'ru';
-    if (!langSel._bound) { langSel._bound = true; langSel.addEventListener('change', e => { S.settings.lang = e.target.value; save(); }); }
-  }
-  const curSel = document.getElementById('set-cur');
-  if (curSel) {
-    curSel.value = sets.currency || 'EUR';
-    if (!curSel._bound) { curSel._bound = true; curSel.addEventListener('change', e => { S.settings.currency = e.target.value; save(); }); }
-  }
-
   const soundTog = document.getElementById('set-sound');
   const soundRow = document.getElementById('set-sound-row');
   if (soundTog) soundTog.classList.toggle('on', !!sets.sound);
@@ -2022,7 +2015,6 @@ function confirmPiggy(isAdd, btn) {
   renderPiggy();
   renderHome();
   if (curSc === 'profile') renderProfile();
-  launchConfetti();
   toast(isAdd ? `🐷 +${fmt(amt)} € отложено из банка` : `🏦 −${fmt(amt)} € возвращено на банк`);
 }
 
@@ -2162,8 +2154,6 @@ function showOnboarding() {
   if (emRo) emRo.textContent = accEmail || '—';
   const emFf = document.getElementById('onb-email-ff');
   if (emFf) emFf.style.display = accEmail ? '' : 'none'; // в локальном режиме без аккаунта прячем
-  document.getElementById('onb-lang').value = S.settings.lang || 'ru';
-  document.getElementById('onb-cur').value = S.settings.currency || 'EUR';
   buildAvatarPicker('onb-emoji', S.profile.avatar || '');
   el.classList.add('on');
   setTimeout(() => document.getElementById('onb-name').focus(), 350);
@@ -2181,8 +2171,8 @@ function finishOnboarding() {
   // Email берём из аккаунта (задаётся при регистрации), вводить вручную нельзя.
   const accEmail = (window.cloudUser?.email) || (S.profile.email && S.profile.email !== 'denis@example.com' ? S.profile.email : '');
   S.profile = { name, email: accEmail, avatar: getAvatar('onb-emoji') || null };
-  S.settings.lang = document.getElementById('onb-lang').value || 'ru';
-  S.settings.currency = document.getElementById('onb-cur').value || 'EUR';
+  S.settings.lang = 'ru';
+  S.settings.currency = 'EUR';
   S.settings.onboarded = true;
   save();
   document.getElementById('onboarding').classList.remove('on');
