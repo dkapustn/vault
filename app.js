@@ -521,6 +521,20 @@ function autoNotifs() {
       }
     });
   });
+  // Превышение месячного бюджета категории (раз в месяц на категорию).
+  const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const mTxs = getMonthTxs();
+  S.categories.forEach(c => {
+    if (!(c.budget > 0) || c.type === 'income') return;
+    const spent = mTxs.filter(t => t.category === c.id && t.type === 'expense').reduce((a, t) => a + t.amount, 0);
+    if (spent > c.budget) {
+      const key = 'bg_' + c.id + '_' + ym;
+      if (!S.notifs.find(n => n.id === key)) {
+        S.notifs.unshift({ id: key, title: 'Бюджет превышен', sub: `${c.icon} ${c.name}: ${fmt(spent)} из ${fmt(c.budget)} €`, icon: '⚠️', type: 'warn', time: now.toISOString(), read: false });
+        changed = true;
+      }
+    }
+  });
   if (S.notifs.length > 50) { S.notifs = S.notifs.slice(0, 50); changed = true; }
   if (changed) save();
   updateNDot();
@@ -1045,18 +1059,31 @@ document.querySelectorAll('#sc-categories .cf').forEach(b => b.addEventListener(
 function buildCatHTML(cat, mTxs, mExp) {
   const mAmt = mTxs.filter(t => t.category === cat.id && t.type === 'expense').reduce((a, t) => a + t.amount, 0);
   const cnt = S.transactions.filter(t => t.category === cat.id).length;
-  const pct = mExp ? Math.min(mAmt / mExp * 100, 100) : 0;
+  const hasBudget = cat.budget > 0 && cat.type !== 'income';
+  let barPct, barColor, sub;
+  if (hasBudget) {
+    const over = mAmt > cat.budget;
+    barPct = Math.min(mAmt / cat.budget * 100, 100);
+    barColor = over ? 'var(--rd)' : (mAmt / cat.budget > 0.85 ? 'var(--am)' : cat.color);
+    sub = over
+      ? `${fmt(mAmt)} из ${fmt(cat.budget)} € · превышен на ${fmt(mAmt - cat.budget)} €`
+      : `${fmt(mAmt)} из ${fmt(cat.budget)} € · осталось ${fmt(cat.budget - mAmt)} €`;
+  } else {
+    barPct = mExp ? Math.min(mAmt / mExp * 100, 100) : 0;
+    barColor = cat.color;
+    sub = `${cnt} операций · ${Math.round(barPct)}% расходов`;
+  }
   return `<div class="cat-row" data-cid="${cat.id}">
     <div class="cat-main">
       <div class="cat-ico" style="background:${cat.color}15">${cat.icon}</div>
       <div class="cat-body">
-        <div class="cat-name">${esc(cat.name)}</div>
-        <div class="cat-bar-w"><div class="cat-bar-f" style="width:${pct}%;background:${cat.color}"></div></div>
-        <div class="cat-sub">${cnt} операций · ${Math.round(pct)}% расходов</div>
+        <div class="cat-name">${esc(cat.name)}${hasBudget ? ' <span class="cat-budget-tag">бюджет</span>' : ''}</div>
+        <div class="cat-bar-w"><div class="cat-bar-f" style="width:${barPct}%;background:${barColor}"></div></div>
+        <div class="cat-sub">${sub}</div>
       </div>
       <div class="cat-right">
-        <div class="cat-amt" style="color:${cat.color}">${fmt(mAmt)} €</div>
-        <div class="cat-cnt">за месяц</div>
+        <div class="cat-amt" style="color:${hasBudget && mAmt > cat.budget ? 'var(--rd)' : cat.color}">${fmt(mAmt)} €</div>
+        <div class="cat-cnt">${hasBudget ? 'из ' + fmt(cat.budget) + ' €' : 'за месяц'}</div>
       </div>
     </div>
     <div class="cat-actions">
@@ -1087,6 +1114,7 @@ function renderCats() {
 function openCatAdd() {
   document.getElementById('cadd-name').value = '';
   document.getElementById('cadd-type').value = 'expense';
+  document.getElementById('cadd-budget').value = '';
   buildEmoji('cadd-emoji');       // первый выбран по умолчанию
   buildColor('cadd-color');        // первый выбран по умолчанию
   openM('m-cadd');
@@ -1094,7 +1122,8 @@ function openCatAdd() {
 document.getElementById('cadd-ok').addEventListener('click', () => {
   const name = document.getElementById('cadd-name').value.trim();
   if (!name) { toast('Введи название'); return; }
-  S.categories.push({ id: 'c' + uid(), name, icon: getEmoji('cadd-emoji'), color: getColor('cadd-color'), type: document.getElementById('cadd-type').value });
+  const budget = parseFloat(document.getElementById('cadd-budget').value);
+  S.categories.push({ id: 'c' + uid(), name, icon: getEmoji('cadd-emoji'), color: getColor('cadd-color'), type: document.getElementById('cadd-type').value, budget: budget > 0 ? budget : undefined });
   save(); closeM('m-cadd'); renderCats(); renderFSCats();
   document.getElementById('p-cats-cnt').textContent = S.categories.length + ' категорий';
   document.getElementById('ps-cat').textContent = S.categories.length;
@@ -1116,6 +1145,7 @@ function openCatEdit(cid) {
     </div>`;
   document.getElementById('cedit-name').value = cat.name;
   document.getElementById('cedit-type').value = cat.type;
+  document.getElementById('cedit-budget').value = cat.budget > 0 ? cat.budget : '';
   // Передаём текущие значения прямо в build — они будут выбраны сразу
   buildEmoji('cedit-emoji', ALL_EMO, cat.icon);
   buildColor('cedit-color', cat.color);
@@ -1128,6 +1158,8 @@ document.getElementById('cedit-save').addEventListener('click', () => {
   if (!name) { toast('Введи название'); return; }
   cat.name = name; cat.type = document.getElementById('cedit-type').value;
   cat.icon = getEmoji('cedit-emoji'); cat.color = getColor('cedit-color');
+  const eb = parseFloat(document.getElementById('cedit-budget').value);
+  if (eb > 0) cat.budget = eb; else delete cat.budget;
   save(); closeM('m-cedit'); renderCats(); renderFSCats(); toast('✅ Категория обновлена');
 });
 document.getElementById('cedit-del').addEventListener('click', () => deleteCat(editCatId, true));
@@ -1841,6 +1873,7 @@ function initSettings() {
   S.settings = S.settings || {};
   const sets = S.settings;
 
+  initSecurity();
   const soundTog = document.getElementById('set-sound');
   const soundRow = document.getElementById('set-sound-row');
   if (soundTog) soundTog.classList.toggle('on', !!sets.sound);
@@ -1998,6 +2031,77 @@ function clearAll() {
 
 
 
+
+// ══════════════════════════════════════
+// APP LOCK (PIN на вход в приложение)
+// ══════════════════════════════════════
+const PIN_KEYS = `${[1,2,3,4,5,6,7,8,9].map(n => `<button class="pin-key" type="button" data-d="${n}">${n}</button>`).join('')}<span></span><button class="pin-key" type="button" data-d="0">0</button><button class="pin-key pin-back" type="button" data-back="1">⌫</button>`;
+
+// Универсальный ввод 4-значного PIN в нижнем листе.
+function pinPadSheet({ title, sub, onSubmit }) {
+  const { ov, close } = openSheet(`
+    <div class="cdlg-t" style="text-align:center">${title}</div>
+    ${sub ? `<div class="cdlg-s" style="text-align:center">${sub}</div>` : ''}
+    <div class="pin-dots" id="pps-dots"><span></span><span></span><span></span><span></span></div>
+    <div class="pin-pad" id="pps-pad">${PIN_KEYS}</div>
+  `);
+  let buf = '';
+  const dotsWrap = ov.querySelector('#pps-dots'), dots = dotsWrap.querySelectorAll('span');
+  const render = () => dots.forEach((d, i) => d.classList.toggle('on', i < buf.length));
+  ov.querySelector('#pps-pad').addEventListener('click', e => {
+    const k = e.target.closest('.pin-key'); if (!k) return;
+    if (k.dataset.back) { buf = buf.slice(0, -1); render(); return; }
+    if (buf.length >= 4) return;
+    buf += k.dataset.d; render();
+    if (buf.length === 4) setTimeout(() => onSubmit(buf, { close, fail: () => { dotsWrap.classList.add('shake'); setTimeout(() => dotsWrap.classList.remove('shake'), 400); buf = ''; render(); } }), 140);
+  });
+}
+
+// Экран блокировки на входе (нельзя закрыть без кода).
+function showAppLock() {
+  const el = document.getElementById('applock');
+  if (!el) return;
+  const pad = document.getElementById('al-pad');
+  const dots = document.getElementById('al-dots').querySelectorAll('span');
+  let buf = '';
+  const render = () => dots.forEach((d, i) => d.classList.toggle('on', i < buf.length));
+  pad.innerHTML = PIN_KEYS;
+  render();
+  el.classList.add('on');
+  pad.onclick = e => {
+    const k = e.target.closest('.pin-key'); if (!k) return;
+    if (k.dataset.back) { buf = buf.slice(0, -1); render(); return; }
+    if (buf.length >= 4) return;
+    buf += k.dataset.d; render();
+    if (buf.length === 4) setTimeout(() => {
+      if (buf === S.settings.appPin) { el.classList.remove('on'); }
+      else { const dw = document.getElementById('al-dots'); dw.classList.add('shake'); setTimeout(() => dw.classList.remove('shake'), 400); buf = ''; render(); }
+    }, 140);
+  };
+}
+
+function initSecurity() {
+  const tog = document.getElementById('set-applock');
+  const row = document.getElementById('set-applock-row');
+  if (tog) tog.classList.toggle('on', !!S.settings.appPin);
+  if (row && !row._bound) {
+    row._bound = true;
+    row.addEventListener('click', () => {
+      if (S.settings.appPin) {
+        // Отключение — подтверждаем текущим кодом.
+        pinPadSheet({ title: 'Введите код', sub: 'Чтобы отключить защиту', onSubmit: (buf, h) => {
+          if (buf === S.settings.appPin) { delete S.settings.appPin; save(); h.close(); initSecurity(); toast('🔓 Код отключён'); }
+          else h.fail();
+        }});
+      } else {
+        // Установка нового кода.
+        pinPadSheet({ title: 'Придумайте код', sub: '4 цифры для входа в приложение', onSubmit: (buf, h) => {
+          S.settings.appPin = buf; save(); h.close(); initSecurity(); toast('🔒 Код установлен');
+        }});
+      }
+    });
+  }
+}
 
 function openPiggy() {
   if (!S.piggy) S.piggy = { balance: 0, history: [], pin: null };
@@ -2200,6 +2304,7 @@ async function appInit() {
   renderHome();
   autoNotifs();
   initAccountSection();
+  if (S.settings.appPin) showAppLock();
 }
 
 // ── Секция «Аккаунт» в профиле ──

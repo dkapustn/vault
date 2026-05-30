@@ -281,6 +281,7 @@ textarea.inp{resize:none;height:78px;line-height:1.5}
 .cat-main{display:flex;align-items:center;gap:13px}
 .cat-ico{width:46px;height:46px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0}
 .cat-body{flex:1;min-width:0}.cat-name{font-size:14px;font-weight:700;margin-bottom:5px}
+.cat-budget-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--am);background:var(--am2);padding:2px 6px;border-radius:6px;vertical-align:middle;margin-left:4px}
 .cat-bar-w{height:4px;background:var(--p3);border-radius:2px;overflow:hidden}
 .cat-bar-f{height:100%;border-radius:2px}.cat-sub{font-size:11px;color:var(--ink3);margin-top:4px;font-weight:500}
 .cat-right{text-align:right;flex-shrink:0}
@@ -850,6 +851,8 @@ mark{background:rgba(240,144,10,.35)}
 .onb-foot{text-align:center;font-size:12px;color:var(--ink3);margin-top:16px;font-weight:500}
 
 /* AUTH (Supabase) */
+#applock{position:fixed;inset:0;z-index:800;background:#111113;display:none;flex-direction:column;justify-content:center;align-items:center;padding:max(48px,env(safe-area-inset-top,44px)) 24px calc(32px + env(safe-area-inset-bottom,0px))}
+#applock.on{display:flex;animation:fIn .3s cubic-bezier(.22,1,.36,1)}
 #auth{position:fixed;inset:0;z-index:700;background:#111113;display:none;flex-direction:column;justify-content:center;overflow-y:auto;padding:max(48px,env(safe-area-inset-top,44px)) 24px calc(32px + env(safe-area-inset-bottom,0px))}
 #auth.on{display:flex;animation:fIn .3s cubic-bezier(.22,1,.36,1)}
 .auth-tabs{display:flex;background:var(--p2);border-radius:14px;padding:4px;margin-bottom:18px;gap:4px}

@@ -269,6 +269,7 @@
   </div></div>
   <div class="sg"><div class="sg-lbl">Настройки</div><div class="slist">
     <div class="si" id="set-sound-row"><div class="si-ic" style="background:#1a1830">🔊</div><div class="si-t"><div class="si-n">Звук операций</div><div class="si-s">Тихий сигнал при добавлении</div></div><div class="si-r"><div class="tog" id="set-sound"></div></div></div>
+    <div class="si" id="set-applock-row"><div class="si-ic" style="background:#2a0f10">🔒</div><div class="si-t"><div class="si-n">Код-пароль на вход</div><div class="si-s">PIN из 4 цифр при открытии</div></div><div class="si-r"><div class="tog" id="set-applock"></div></div></div>
   </div></div>
   <div class="sg" id="acct-section" style="display:none"><div class="sg-lbl">Аккаунт</div><div class="slist">
     <div class="si" style="cursor:default"><div class="si-ic" style="background:#152030">✉️</div><div class="si-t"><div class="si-n">Email</div><div class="si-s" id="acct-email">—</div></div></div>
@@ -471,6 +472,7 @@
     <div class="mt">Новая категория</div>
     <div class="ff"><div class="fl">Название</div><input class="inp" id="cadd-name" placeholder="Например: Спорт"></div>
     <div class="ff"><div class="fl">Тип</div><select class="inp" id="cadd-type"><option value="expense">Расход</option><option value="income">Доход</option><option value="both">Оба</option></select></div>
+    <div class="ff" id="cadd-budget-ff"><div class="fl">Месячный бюджет (€) <span style="opacity:.6">— необязательно</span></div><input class="inp" id="cadd-budget" type="number" placeholder="Лимит расходов в месяц" inputmode="decimal"></div>
     <div class="ff"><div class="fl">Иконка</div><div class="eg" id="cadd-emoji"></div></div>
     <div class="ff"><div class="fl">Цвет</div><div class="clrw" id="cadd-color"></div></div>
     <button class="btn btn-k" id="cadd-ok">Создать</button>
@@ -485,6 +487,7 @@
     <div class="cu-info" id="cedit-info"></div>
     <div class="ff"><div class="fl">Название</div><input class="inp" id="cedit-name"></div>
     <div class="ff"><div class="fl">Тип</div><select class="inp" id="cedit-type"><option value="expense">Расход</option><option value="income">Доход</option><option value="both">Оба</option></select></div>
+    <div class="ff" id="cedit-budget-ff"><div class="fl">Месячный бюджет (€) <span style="opacity:.6">— необязательно</span></div><input class="inp" id="cedit-budget" type="number" placeholder="Лимит расходов в месяц" inputmode="decimal"></div>
     <div class="ff"><div class="fl">Иконка</div><div class="eg" id="cedit-emoji"></div></div>
     <div class="ff"><div class="fl">Цвет</div><div class="clrw" id="cedit-color"></div></div>
     <button class="btn btn-k" id="cedit-save" style="margin-bottom:10px">Сохранить изменения</button>
@@ -630,6 +633,17 @@
     <div class="ff" id="onb-email-ff"><div class="fl">Email аккаунта</div><div class="inp inp-ro" id="onb-email-ro">—</div></div>
     <button class="btn btn-k" id="onb-go" style="margin-top:20px">Начать →</button>
     <div class="onb-foot">🔒 Данные хранятся только на твоём устройстве</div>
+  </div>
+</div>
+
+<!-- ═══════════════ APP LOCK (PIN) ═══════════════ -->
+<div id="applock">
+  <div class="onb" style="max-width:320px;text-align:center">
+    <div class="onb-logo">🔒</div>
+    <div class="onb-title" style="font-size:22px;margin-bottom:6px">Введите код</div>
+    <div class="onb-sub" style="margin-bottom:8px">Код-пароль для входа в Vault</div>
+    <div class="pin-dots" id="al-dots" style="margin:18px auto"><span></span><span></span><span></span><span></span></div>
+    <div class="pin-pad" id="al-pad" style="max-width:260px;margin:0 auto"></div>
   </div>
 </div>
 
