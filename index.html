@@ -277,6 +277,7 @@
   </div></div>
   <div class="sg"><div class="sg-lbl">Данные</div><div class="slist">
     <div class="si" onclick="backupData()"><div class="si-ic" style="background:#0a2018">🔐</div><div class="si-t"><div class="si-n">Резервная копия</div><div class="si-s">Скачать все данные (JSON)</div></div><div class="si-r"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg></div></div>
+    <div class="si" onclick="exportCSV()"><div class="si-ic" style="background:#152030">📊</div><div class="si-t"><div class="si-n">Экспорт в CSV</div><div class="si-s">Операции таблицей для Excel</div></div><div class="si-r"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg></div></div>
     <div class="si" onclick="document.getElementById('restore-file').click()"><div class="si-ic" style="background:#152030">📂</div><div class="si-t"><div class="si-n">Восстановить из копии</div><div class="si-s">Загрузить JSON-файл</div></div><div class="si-r"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg></div></div>
     <input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(this)">
     <div class="si" onclick="clearAll()" style="cursor:pointer"><div class="si-ic" style="background:#2a0f10">🗑️</div><div class="si-t"><div class="si-n" style="color:var(--rd)">Удалить все данные</div><div class="si-s" style="color:var(--rd);opacity:.7">Нельзя отменить</div></div><div class="si-r"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg></div></div>
@@ -536,13 +537,17 @@
   <div class="mdl">
     <div class="mhdl"></div>
     <div class="mt" id="radd-title">Регулярный платёж</div>
-    <div class="ff"><div class="fl">Название</div><input class="inp" id="radd-name" placeholder="Netflix, Аренда..."></div>
+    <div class="type-sw" id="radd-type-sw">
+      <button class="tsw on exp" type="button" data-rt="expense">↓ Расход</button>
+      <button class="tsw inc" type="button" data-rt="income">↑ Доход</button>
+    </div>
+    <div class="ff"><div class="fl">Название</div><input class="inp" id="radd-name" placeholder="Netflix, Аренда, Зарплата..."></div>
     <div class="amt-blk"><div class="amt-sym">€</div><input class="amt-inp" id="radd-amt" type="number" placeholder="0,00" inputmode="decimal"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="ff"><div class="fl">Частота</div><select class="inp" id="radd-freq"><option value="monthly">Ежемесячно</option><option value="weekly">Еженедельно</option><option value="yearly">Ежегодно</option><option value="quarterly">Квартально</option></select></div>
       <div class="ff"><div class="fl">День списания</div><input class="inp" id="radd-day" type="number" min="1" max="31" placeholder="1"></div>
     </div>
-    <div class="ff"><div class="fl">Счёт списания</div>
+    <div class="ff"><div class="fl">Счёт</div>
       <div class="ap" id="radd-ap">
         <button class="apb on" type="button" data-ra="cash">💵 Наличные</button>
         <button class="apb" type="button" data-ra="bank">🏦 Банк</button>

@@ -187,6 +187,23 @@ function toast(msg) {
   clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), 2500);
 }
 
+// Тост с кнопкой «Отменить» — для обратимых удалений.
+let _undoTimer = null;
+function undoToast(message, restoreFn) {
+  const old = document.getElementById('undo-toast');
+  if (old) old.remove();
+  clearTimeout(_undoTimer);
+  const el = document.createElement('div');
+  el.id = 'undo-toast';
+  el.className = 'undo-toast';
+  el.innerHTML = `<span>${esc(message)}</span><button type="button">Отменить</button>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('on'));
+  const close = () => { el.classList.remove('on'); setTimeout(() => el.remove(), 250); };
+  _undoTimer = setTimeout(close, 5000);
+  el.querySelector('button').addEventListener('click', () => { clearTimeout(_undoTimer); close(); restoreFn(); });
+}
+
 function openM(id) { document.getElementById(id).classList.add('on'); }
 function closeM(id) { document.getElementById(id).classList.remove('on'); }
 
@@ -657,10 +674,15 @@ function openDet(id) {
     ${t.isRec ? '<div class="det-row"><span class="det-l">Тип</span><span class="det-r">🔁 Регулярный</span></div>' : ''}`;
   document.getElementById('det-edit-btn').onclick = () => { closeM('m-det'); openEditTx(id); };
   document.getElementById('det-del').onclick = () => {
+    const idx = S.transactions.findIndex(x => x.id === id);
+    const removed = S.transactions[idx];
     S.transactions = S.transactions.filter(x => x.id !== id);
     save(); closeM('m-det'); renderHome();
     if (curSc === 'transactions') renderTx();
-    toast('🗑 Операция удалена');
+    undoToast('🗑 Операция удалена', () => {
+      S.transactions.splice(Math.min(idx, S.transactions.length), 0, removed);
+      save(); renderHome(); if (curSc === 'transactions') renderTx();
+    });
   };
   openM('m-det');
 }
@@ -811,8 +833,7 @@ document.getElementById('add-ok').addEventListener('click', () => {
   const tx = { id: uid(), type: addType, amount, desc, note, date, account, category, isRec: rep !== 'none' };
   S.transactions.push(tx);
   if (rep !== 'none') {
-    S.recurring.push({ id: 'r' + uid(), name: desc || getCat(category).name, amount, freq: rep, day: new Date(date).getDate(), category, icon: getCat(category).icon, account });
-    addNotif('Регулярный платёж добавлен', `${desc || getCat(category).name} (${FREQ[rep] || rep})`, '🔁', 'info');
+    S.recurring.push({ id: 'r' + uid(), name: desc || getCat(category).name, amount, type: addType, freq: rep, day: ymd(date).d, category, icon: getCat(category).icon, account, createdAt: today() });
   }
   save(); closeM('m-add');
   autoNotifs(); renderHome();
@@ -1119,14 +1140,21 @@ function deleteCat(cid, fromModal = false) {
     title: 'Удалить категорию?',
     text: `${cat.icon} «${esc(cat.name)}»${txc > 0 ? `<br><span style="color:var(--am);font-weight:600">⚠️ ${txc} операций перейдут в «Другое»</span>` : ''}`,
     onOk: () => {
+      const idx = S.categories.findIndex(c => c.id === cid);
+      const affected = S.transactions.filter(t => t.category === cid).map(t => t.id);
       S.transactions.forEach(t => { if (t.category === cid) t.category = 'other'; });
       S.categories = S.categories.filter(c => c.id !== cid);
       save();
       if (fromModal) closeM('m-cedit');
       renderCats(); renderFSCats();
-      document.getElementById('p-cats-cnt').textContent = S.categories.length + ' категорий';
-      document.getElementById('ps-cat').textContent = S.categories.length;
-      toast('🗑 Категория удалена');
+      const setCnt = () => { document.getElementById('p-cats-cnt').textContent = S.categories.length + ' категорий'; document.getElementById('ps-cat').textContent = S.categories.length; };
+      setCnt();
+      undoToast('🗑 Категория удалена', () => {
+        S.categories.splice(Math.min(idx, S.categories.length), 0, cat);
+        const aset = new Set(affected);
+        S.transactions.forEach(t => { if (aset.has(t.id)) t.category = cid; });
+        save(); renderCats(); renderFSCats(); setCnt();
+      });
     }
   });
 }
@@ -1183,7 +1211,11 @@ function renderGoals() {
     confirmSheet({
       title: 'Удалить цель?',
       text: `${g.icon || '🎯'} «${esc(g.name)}» — ${fmt(g.current)} / ${fmt(g.target)} €`,
-      onOk: () => { S.goals = S.goals.filter(x => x.id !== g.id); save(); renderGoals(); toast('🗑 Цель удалена'); }
+      onOk: () => {
+        const idx = S.goals.findIndex(x => x.id === g.id);
+        S.goals = S.goals.filter(x => x.id !== g.id); save(); renderGoals();
+        undoToast('🗑 Цель удалена', () => { S.goals.splice(Math.min(idx, S.goals.length), 0, g); save(); renderGoals(); });
+      }
     });
   }));
 }
@@ -1230,7 +1262,11 @@ function openGoalDet(gid) {
     confirmSheet({
       title: 'Удалить цель?',
       text: `${g.icon || '🎯'} «${esc(g.name)}» — ${fmt(g.current)} / ${fmt(g.target)} €`,
-      onOk: () => { S.goals = S.goals.filter(x => x.id !== gid); save(); renderGoals(); toast('🗑 Цель удалена'); }
+      onOk: () => {
+        const idx = S.goals.findIndex(x => x.id === gid);
+        S.goals = S.goals.filter(x => x.id !== gid); save(); renderGoals();
+        undoToast('🗑 Цель удалена', () => { S.goals.splice(Math.min(idx, S.goals.length), 0, g); save(); renderGoals(); });
+      }
     });
   };
   openM('m-gdet');
@@ -1270,7 +1306,9 @@ document.getElementById('gadd-ok').addEventListener('click', () => {
 let editRecId = null;
 
 function renderRec() {
+  // «В месяц» = регулярные расходы в месячном эквиваленте (доходы не вычитаем).
   const monthly = S.recurring.reduce((a, r) => {
+    if ((r.type || 'expense') !== 'expense') return a;
     const mul = {monthly:1, weekly:4.33, yearly:1/12, quarterly:1/3, daily:30}[r.freq] || 1;
     return a + r.amount * mul;
   }, 0);
@@ -1294,12 +1332,12 @@ function renderRec() {
           <div class="rec-f"><span class="pill rec">${FREQ[r.freq] || r.freq}</span>${r.day ? `<span style="font-size:10px;color:var(--ink4)">· ${r.day}-го</span>` : ''}</div>
         </div>
         <div class="rec-r">
-          <div class="rec-a">−${fmt(r.amount)} €</div>
-          <div class="rec-nx">${paidToday ? 'оплачено сегодня' : 'через ' + dl + ' дн.'}</div>
+          <div class="rec-a"${(r.type === 'income') ? ' style="color:var(--gr)"' : ''}>${(r.type === 'income') ? '+' : '−'}${fmt(r.amount)} €</div>
+          <div class="rec-nx">${paidToday ? (r.type === 'income' ? 'зачислено сегодня' : 'оплачено сегодня') : 'через ' + dl + ' дн.'}</div>
         </div>
       </div>
       <div class="rec-actions">
-        <button class="rec-pay-btn" data-rid="${r.id}" ${paidToday ? 'disabled' : ''}>${paidToday ? '✓ Оплачено' : '✓ Оплатить'}</button>
+        <button class="rec-pay-btn" data-rid="${r.id}" ${paidToday ? 'disabled' : ''}>${r.type === 'income' ? (paidToday ? '✓ Получено' : '✓ Получить') : (paidToday ? '✓ Оплачено' : '✓ Оплатить')}</button>
         <button class="rec-edit-btn" data-rid="${r.id}">✏️</button>
         <button class="rec-del-btn" data-rid="${r.id}">🗑</button>
       </div>
@@ -1321,34 +1359,75 @@ function renderRec() {
     confirmSheet({
       title: 'Удалить платёж?',
       text: `«${esc(r.name)}» — ${fmt(r.amount)} €`,
-      onOk: () => { S.recurring = S.recurring.filter(x => x.id !== r.id); save(); renderRec(); toast('🗑 Платёж удалён'); }
+      onOk: () => {
+        const idx = S.recurring.findIndex(x => x.id === r.id);
+        S.recurring = S.recurring.filter(x => x.id !== r.id); save(); renderRec();
+        undoToast('🗑 Платёж удалён', () => { S.recurring.splice(Math.min(idx, S.recurring.length), 0, r); save(); renderRec(); });
+      }
     });
   }));
 }
 
-// Провести регулярный платёж — создаёт реальную операцию-расход
+// Авто-проведение просроченных ежемесячных платежей при запуске.
+// Надёжно работает для freq='monthly' (день = число месяца). Недельные/годовые
+// оставляем на ручное проведение, чтобы не угадывать дату.
+function autoPostRecurring() {
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const todayStr = today();
+  let posted = 0;
+  (S.recurring || []).forEach(r => {
+    if ((r.freq || 'monthly') !== 'monthly') return;
+    if (!r.createdAt) { r.createdAt = todayStr; return; } // только вперёд для старых платежей
+    const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    let due = new Date(now.getFullYear(), now.getMonth(), Math.min(r.day || 1, dim));
+    if (due > now) {
+      const pm = new Date(now.getFullYear(), now.getMonth(), 0);
+      due = new Date(pm.getFullYear(), pm.getMonth(), Math.min(r.day || 1, pm.getDate()));
+    }
+    const dueStr = dStr(due);
+    if (dueStr < r.createdAt) return;             // до создания платежа
+    if (r.lastPaid && r.lastPaid >= dueStr) return; // уже проведено за этот период
+    const type = r.type || 'expense';
+    S.transactions.push({ id: uid(), type, amount: r.amount, desc: r.name, note: '', date: dueStr, account: r.account || 'cash', category: r.category || 'other', isRec: true, recId: r.id });
+    r.lastPaid = dueStr;
+    posted++;
+  });
+  if (posted) { save(); toast(`🔁 Автоматически проведено: ${posted}`); }
+  return posted;
+}
+
+// Провести регулярный платёж — создаёт реальную операцию
 function payRecurring(rid) {
   const r = S.recurring.find(x => x.id === rid);
   if (!r) return;
-  S.transactions.push({ id: uid(), type: 'expense', amount: r.amount, desc: r.name, note: '', date: today(), account: r.account || 'cash', category: r.category || 'other', isRec: true, recId: r.id });
+  const type = r.type || 'expense';
+  S.transactions.push({ id: uid(), type, amount: r.amount, desc: r.name, note: '', date: today(), account: r.account || 'cash', category: r.category || 'other', isRec: true, recId: r.id });
   r.lastPaid = today();
   save();
   renderRec(); renderHome();
   if (curSc === 'transactions') renderTx();
   playAddSound();
-  toast(`✅ ${r.name}: −${fmt(r.amount)} €`);
+  toast(`✅ ${r.name}: ${type === 'income' ? '+' : '−'}${fmt(r.amount)} €`);
 }
+
+let recType = 'expense';
+function setRecType(t) {
+  recType = t;
+  document.querySelectorAll('#radd-type-sw .tsw').forEach(b => b.classList.toggle('on', b.dataset.rt === t));
+  buildCatPicker('radd-cat', t);
+}
+document.querySelectorAll('#radd-type-sw .tsw').forEach(b => b.addEventListener('click', () => setRecType(b.dataset.rt)));
 
 function openRecM() {
   editRecId = null;
-  document.getElementById('radd-title').textContent = 'Регулярный платёж';
+  document.getElementById('radd-title').textContent = 'Регулярная операция';
   document.getElementById('radd-ok').textContent = 'Добавить';
   document.getElementById('radd-name').value = '';
   document.getElementById('radd-amt').value = '';
   document.getElementById('radd-day').value = '1';
   document.getElementById('radd-freq').value = 'monthly';
+  setRecType('expense');
   buildAcctPicker('radd-ap', 'ra', 'cash');
-  buildCatPicker('radd-cat', 'expense');
   buildEmoji('radd-emoji');
   openM('m-radd');
 }
@@ -1357,14 +1436,15 @@ function openRecEdit(rid) {
   editRecId = rid;
   const r = S.recurring.find(x => x.id === rid);
   if (!r) return;
-  document.getElementById('radd-title').textContent = 'Редактировать платёж';
+  document.getElementById('radd-title').textContent = 'Редактировать операцию';
   document.getElementById('radd-ok').textContent = 'Сохранить';
   document.getElementById('radd-name').value = r.name;
   document.getElementById('radd-amt').value = r.amount;
   document.getElementById('radd-day').value = r.day || 1;
   document.getElementById('radd-freq').value = r.freq || 'monthly';
+  setRecType(r.type || 'expense');
   buildAcctPicker('radd-ap', 'ra', r.account || 'cash');
-  buildCatPicker('radd-cat', 'expense', r.category);
+  buildCatPicker('radd-cat', r.type || 'expense', r.category);
   buildEmoji('radd-emoji', ALL_EMO, r.icon || null);
   openM('m-radd');
 }
@@ -1375,6 +1455,7 @@ document.getElementById('radd-ok').addEventListener('click', () => {
   if (!name || !amount) { toast('Введи название и сумму'); return; }
   const data = {
     name, amount,
+    type: recType,
     freq: document.getElementById('radd-freq').value,
     day: parseInt(document.getElementById('radd-day').value) || 1,
     account: getAcctPicker('radd-ap', 'ra'),
@@ -1386,9 +1467,8 @@ document.getElementById('radd-ok').addEventListener('click', () => {
     if (r) Object.assign(r, data);
     save(); closeM('m-radd'); renderRec(); toast('✅ Платёж обновлён');
   } else {
-    S.recurring.push({ id: 'r' + uid(), ...data });
+    S.recurring.push({ id: 'r' + uid(), ...data, createdAt: today() });
     save(); closeM('m-radd'); renderRec();
-    addNotif('Регулярный платёж добавлен', `${name} — ${fmt(amount)} €`, '🔁', 'info');
     toast('✅ Платёж добавлен');
   }
 });
@@ -1406,12 +1486,18 @@ function deleteTmpl(id, afterDelete) {
     title: 'Удалить шаблон?',
     text: `${t.icon || '⚡'} «${esc(t.name)}» — ${t.type === 'income' ? '+' : '−'}${fmt(t.amount)} €`,
     onOk: () => {
+      const idx = S.templates.findIndex(x => x.id === id);
+      const removed = S.templates[idx];
       S.templates = S.templates.filter(x => x.id !== id);
       save();
       renderTemplates(); renderFSTemplates();
       const cnt = document.getElementById('p-tmpl-cnt');
       if (cnt) cnt.textContent = S.templates.length + ' шаблонов';
-      toast('🗑 Шаблон удалён');
+      undoToast('🗑 Шаблон удалён', () => {
+        S.templates.splice(Math.min(idx, S.templates.length), 0, removed);
+        save(); renderTemplates(); renderFSTemplates();
+        if (cnt) cnt.textContent = S.templates.length + ' шаблонов';
+      });
       afterDelete?.();
     }
   });
@@ -1835,6 +1921,29 @@ function backupData() {
   toast('🔐 Резервная копия сохранена');
 }
 
+function exportCSV() {
+  if (!S.transactions.length) { toast('Нет операций для экспорта'); return; }
+  const TYPE = { expense: 'Расход', income: 'Доход', transfer: 'Перевод' };
+  const q = v => { const s = String(v == null ? '' : v); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const header = ['Дата', 'Тип', 'Сумма', 'Счёт', 'Категория', 'Описание', 'Заметка'];
+  const rows = [...S.transactions].sort((a, b) => a.date < b.date ? -1 : 1).map(t => [
+    t.date,
+    TYPE[t.type] || t.type,
+    (t.type === 'expense' ? '-' : t.type === 'income' ? '+' : '') + t.amount.toFixed(2),
+    t.type === 'transfer' ? `${acctLabel(t.account)} → ${acctLabel(t.toAcct)}` : acctLabel(t.account),
+    t.type === 'transfer' ? 'Банкомат' : getCat(t.category).name,
+    t.desc || '',
+    t.note || '',
+  ].map(q).join(';'));
+  // BOM, чтобы Excel правильно открыл UTF-8 с кириллицей.
+  const csv = '﻿' + header.join(';') + '\n' + rows.join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `vault-операции-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  toast('📊 CSV экспортирован');
+}
+
 function restoreData(input) {
   const file = input.files[0];
   if (!file) return;
@@ -2087,6 +2196,7 @@ async function appInit() {
 
   initSettings();
   maybeOnboard();
+  autoPostRecurring();
   renderHome();
   autoNotifs();
   initAccountSection();
@@ -2222,7 +2332,11 @@ function deleteDebt(id){
   confirmSheet({
     title: 'Удалить долг?',
     text: `«${esc(d.name)}» — ${fmt(d.amount)} €`,
-    onOk: () => { S.debts=(S.debts||[]).filter(x=>x.id!==id); save(); renderDebts(); toast('🗑 Долг удалён'); }
+    onOk: () => {
+      const idx=(S.debts||[]).findIndex(x=>x.id===id);
+      S.debts=(S.debts||[]).filter(x=>x.id!==id); save(); renderDebts();
+      undoToast('🗑 Долг удалён', () => { S.debts.splice(Math.min(idx,S.debts.length),0,d); save(); renderDebts(); });
+    }
   });
 }
 document.addEventListener('DOMContentLoaded',()=>{

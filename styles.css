@@ -126,6 +126,9 @@ textarea.inp{resize:none;height:78px;line-height:1.5}
 /* TOAST */
 #toast{position:fixed;top:max(20px, env(safe-area-inset-top, 20px));left:50%;transform:translateX(-50%) translateY(-120px);background:#F5F4F0;color:#111113;border-radius:14px;padding:12px 22px;font-size:14px;font-weight:600;z-index:999;transition:.35s cubic-bezier(.34,1.4,.64,1);white-space:nowrap;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.25)}
 #toast.on{transform:translateX(-50%) translateY(0)}
+.undo-toast{position:fixed;left:50%;bottom:calc(var(--nav) + var(--sab) + 18px);transform:translateX(-50%) translateY(24px);display:flex;align-items:center;gap:14px;background:#2c2c2e;color:#F5F4F0;border-radius:14px;padding:10px 12px 10px 18px;font-size:14px;font-weight:600;z-index:998;opacity:0;transition:.28s cubic-bezier(.34,1.4,.64,1);box-shadow:0 8px 32px rgba(0,0,0,.4);max-width:calc(100% - 32px)}
+.undo-toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.undo-toast button{background:none;border:none;color:var(--am);font-family:'Satoshi',sans-serif;font-size:14px;font-weight:700;cursor:pointer;padding:6px 8px;white-space:nowrap}
 
 /* ── HOME ── */
 .hero{margin:0 16px 18px;background:linear-gradient(135deg,#1a1a1c 0%,#1e1e22 100%);border:1px solid rgba(255,255,255,.08);border-radius:26px;padding:26px 24px 22px;position:relative;overflow:hidden;color:#fff}
