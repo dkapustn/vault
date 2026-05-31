@@ -49,7 +49,9 @@ const DEF_CATS = [
 const KEY = 'vault_v6';
 const IDB_NAME = 'VaultDB';
 const IDB_STORE = 'state';
-const IDB_KEY = 'main';
+const IDB_KEY = 'main';      // legacy / локальный режим
+const CACHE_KEY = 'vault_cache'; // гибрид: локальный кэш облачного стейта
+const IDB_CACHE_KEY = 'cloud';
 
 let idb = null;
 
@@ -64,31 +66,49 @@ function openIDB() {
   });
 }
 
-function saveToIDB(data) {
+function saveToIDB(data, key = IDB_KEY) {
   if (!idb) return;
   try {
     const tx = idb.transaction(IDB_STORE, 'readwrite');
-    tx.objectStore(IDB_STORE).put(data, IDB_KEY);
+    tx.objectStore(IDB_STORE).put(data, key);
   } catch(e) {}
 }
 
-function loadFromIDB() {
+function loadFromIDB(key = IDB_KEY) {
   return new Promise((res) => {
     if (!idb) return res(null);
     try {
       const tx = idb.transaction(IDB_STORE, 'readonly');
-      const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+      const req = tx.objectStore(IDB_STORE).get(key);
       req.onsuccess = () => res(req.result || null);
       req.onerror = () => res(null);
     } catch(e) { res(null); }
   });
 }
 
+// Гибрид: пишем локальный кэш облачного стейта (мгновенно и надёжно),
+// помечаем временем updatedAt и привязываем к userId.
+function writeCloudCache(updatedAt) {
+  try {
+    const wrap = JSON.stringify({ state: S, updatedAt, userId: (window.cloudUser && window.cloudUser.id) || null });
+    localStorage.setItem(CACHE_KEY, wrap);
+    saveToIDB(wrap, IDB_CACHE_KEY);
+  } catch (e) {}
+}
+async function readCloudCache() {
+  let raw = null;
+  try { raw = localStorage.getItem(CACHE_KEY); } catch (e) {}
+  if (!raw) { const idbRaw = await loadFromIDB(IDB_CACHE_KEY); raw = idbRaw || null; }
+  if (!raw) return null;
+  try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return null; }
+}
+
 function save() {
-  // Если облако настроено — БД по аккаунту единственный источник правды,
-  // локально ничего не храним. Иначе (дев без облака) пишем в localStorage/IDB.
+  // Гибрид: облако — durable-хранилище, локальный кэш — для скорости и офлайна.
   if (window.cloudEnabled) {
-    if (window.cloudPushDebounced) window.cloudPushDebounced(S);
+    const now = new Date().toISOString();
+    writeCloudCache(now);                                  // мгновенная локальная копия
+    if (window.cloudPushDebounced) window.cloudPushDebounced(S, now); // синк в облако (дебаунс)
     return;
   }
   const data = JSON.stringify(S);
@@ -2243,44 +2263,54 @@ document.getElementById('piggy-take-btn').addEventListener('click', () => piggyT
 // ══════════════════════════════════════
 async function appInit() {
   if (window.cloudEnabled) {
-    // ── Облачный режим: БД по аккаунту — единственный источник правды ──
-    // Локальное хранилище не используется; читаем legacy-данные лишь один раз
-    // для миграции тех, кто пользовался приложением до перехода на облако.
+    // ── Гибрид: локальный кэш (скорость+офлайн) + Supabase (durable, мультидевайс) ──
+    await openIDB().catch(() => {});
+    const hasData = st => st && (st.transactions.length || st.goals.length || st.recurring.length || (st.debts || []).length);
+    // legacy-локалка старых юзеров (для разовой миграции)
     let legacy = null;
-    try {
-      const lsRaw = localStorage.getItem(KEY);
-      if (lsRaw && lsRaw !== '{}') legacy = parseState(lsRaw);
-    } catch (e) {}
+    try { const ls = localStorage.getItem(KEY); if (ls && ls !== '{}') legacy = parseState(ls); } catch (e) {}
 
     try {
-      const r = await window.cloudReady; // резолвится только после входа в аккаунт
-      if (r.state) {
-        // В облаке уже есть данные — это источник правды.
-        const parsed = parseState(r.state);
-        if (parsed) S = parsed;
-      } else if (legacy && (legacy.transactions.length || (legacy.debts || []).length || legacy.goals.length)) {
-        // В облаке пусто, но есть старые локальные данные — мигрируем их наверх.
-        S = legacy;
-        toast('☁️ Данные перенесены в твой аккаунт');
+      const r = await window.cloudReady; // { state, updatedAt, error } — резолвится после входа
+      const uid = window.cloudUser && window.cloudUser.id;
+      const cache = await readCloudCache();
+      const localOk = cache && cache.userId === uid && cache.state;
+      const localState = localOk ? parseState(cache.state) : null;
+      const localTs = localOk ? (cache.updatedAt || '') : '';
+
+      let pushNeeded = false;
+      if (r.error) {
+        // Нет сети / ошибка облака — работаем из локального кэша.
+        if (localState) { S = localState; toast('⚠️ Офлайн — показаны сохранённые данные'); }
+        else if (hasData(legacy)) { S = legacy; pushNeeded = true; }
+        else { S = parseState(null) || getDefaultState(); }
       } else {
-        // Совсем новый аккаунт — стартуем с чистого состояния.
-        S = parseState(null) || getDefaultState();
+        const cloudState = r.state ? parseState(r.state) : null;
+        const cloudTs = r.updatedAt || '';
+        if (cloudState && localState) {
+          // Берём более свежую версию по updatedAt.
+          if (cloudTs >= localTs) S = cloudState;
+          else { S = localState; pushNeeded = true; } // локально новее (правки офлайн) → зальём
+        } else if (cloudState) { S = cloudState; }
+        else if (localState) { S = localState; pushNeeded = true; }
+        else if (hasData(legacy)) { S = legacy; pushNeeded = true; toast('☁️ Данные перенесены в твой аккаунт'); }
+        else { S = parseState(null) || getDefaultState(); pushNeeded = true; }
+
+        // Автозаполнение email из аккаунта.
+        if (window.cloudUser?.email) {
+          const cur = (S.profile?.email || '').trim();
+          if (!cur || cur === 'denis@example.com') { S.profile.email = window.cloudUser.email; pushNeeded = true; }
+        }
       }
 
-      // Автозаполнение email из аккаунта (если профильный email пустой/дефолтный).
-      if (window.cloudUser?.email) {
-        const cur = (S.profile?.email || '').trim();
-        if (!cur || cur === 'denis@example.com') S.profile.email = window.cloudUser.email;
-      }
+      // Всегда фиксируем локальный кэш; в облако пушим только если нужно/возможно.
+      if (r.error) { try { writeCloudCache(localTs || new Date().toISOString()); } catch (e) {} }
+      else if (pushNeeded) save();
+      else writeCloudCache(r.updatedAt || new Date().toISOString());
 
-      // Гарантируем, что строка в БД существует (первый push для нового аккаунта
-      // или после миграции/автозаполнения email).
-      if (!r.state || legacy || window.cloudUser?.email) save();
-
-      // Подчищаем legacy-копию, чтобы она больше не путалась под ногами.
-      try { localStorage.removeItem(KEY); } catch (e) {}
-      try { indexedDB.deleteDatabase(IDB_NAME); } catch (e) {}
-    } catch (e) { console.warn('[cloud] init error', e); }
+      // Разовая зачистка legacy-ключа после миграции.
+      if (legacy) { try { localStorage.removeItem(KEY); } catch (e) {} }
+    } catch (e) { console.warn('[cloud] init error', e); S = S || parseState(null) || getDefaultState(); }
   } else {
     // ── Локальный режим (облако не настроено) — как раньше: localStorage + IDB ──
     try {

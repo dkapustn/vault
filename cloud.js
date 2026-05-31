@@ -50,22 +50,25 @@
   const TABLE = 'user_states';
   let pushTimer = null;
 
+  // Возвращает { state, updatedAt } | { state:null } | { error:true }.
+  // error отличает «нет сети/сбой» от «пусто», чтобы приложение могло
+  // уйти в офлайн-режим и работать из локального кэша.
   async function pull() {
-    if (!window.cloudUser) return null;
+    if (!window.cloudUser) return { state: null };
     try {
       const { data, error } = await sb.from(TABLE)
         .select('state, updated_at')
         .eq('user_id', window.cloudUser.id)
         .maybeSingle();
-      if (error) { console.warn('[cloud] pull error', error); return null; }
+      if (error) { console.warn('[cloud] pull error', error); return { error: true }; }
       const st = data?.state;
-      // Пустой объект считаем «нет данных».
-      if (!st || (typeof st === 'object' && Object.keys(st).length === 0)) return null;
-      return st;
-    } catch (e) { console.warn('[cloud] pull throw', e); return null; }
+      if (!st || (typeof st === 'object' && Object.keys(st).length === 0)) return { state: null };
+      return { state: st, updatedAt: data.updated_at || null };
+    } catch (e) { console.warn('[cloud] pull throw', e); return { error: true }; }
   }
 
   let lastState = null;
+  let lastUpdatedAt = null;   // метка времени, согласованная с локальным кэшем
   let dirty = false;          // есть несохранённые изменения
   let pushing = false;        // идёт запрос (защита от гонки)
   let warnedAt = 0;           // троттлинг тоста об ошибке
@@ -75,12 +78,12 @@
   async function push() {
     if (!window.cloudUser || !lastState || pushing) return false;
     pushing = true;
-    const snapshot = lastState;
+    const snapshot = lastState, snapTs = lastUpdatedAt;
     try {
       const { error } = await sb.from(TABLE).upsert({
         user_id: window.cloudUser.id,
         state: snapshot,
-        updated_at: new Date().toISOString(),
+        updated_at: snapTs || new Date().toISOString(),
       }, { onConflict: 'user_id' });
       pushing = false;
       if (error) { onPushFail(error); return false; }
@@ -103,9 +106,10 @@
     }
   }
 
-  window.cloudPushDebounced = function (state) {
+  window.cloudPushDebounced = function (state, updatedAt) {
     if (!window.cloudUser) return;
     lastState = state;
+    lastUpdatedAt = updatedAt || new Date().toISOString();
     dirty = true;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(push, 800);
@@ -126,6 +130,7 @@
 
   function wipeLocal() {
     try { localStorage.removeItem('vault_v6'); } catch (e) {}
+    try { localStorage.removeItem('vault_cache'); } catch (e) {}
     try { indexedDB.deleteDatabase('VaultDB'); } catch (e) {}
   }
 
@@ -277,8 +282,8 @@
     const finish = async (session) => {
       window.cloudUser = { id: session.user.id, email: session.user.email };
       hideAuth();
-      const state = await pull();
-      resolve({ signedIn: true, state, cloudless: false });
+      const r = await pull(); // { state, updatedAt } | { error:true }
+      resolve({ signedIn: true, cloudless: false, state: r.state || null, updatedAt: r.updatedAt || null, error: !!r.error });
     };
 
     const { data: { session } } = await sb.auth.getSession();
