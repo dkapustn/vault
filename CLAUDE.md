@@ -49,34 +49,41 @@
 `supabase.sql` (схема + RLS + `delete_user()`). Контракт см. в шапке `cloud.js`.
 ```
 S = {
-  profile: { name, email, avatar },        // avatar — эмодзи или null (тогда буква)
+  profile: { name, email, avatar },        // avatar — data-URL фото (256px JPEG) или null (буква); email из аккаунта, неизменяем
   accounts: { cash, bank },                 // «базовый» баланс; реальный = base + транзакции
   transactions: [ {id,type,amount,desc,note,date,account,category,isRec,toAcct?,recId?} ],
-  categories: [ {id,name,icon,color,type} ],// type: expense|income|both
+  categories: [ {id,name,icon,color,type,budget?} ],// type: expense|income|both; budget — месячный лимит (€)
   goals: [ {id,name,target,current,deadline,icon,color,contributions[]} ],
-  recurring: [ {id,name,amount,freq,day,category,icon,account,lastPaid?} ],
+  recurring: [ {id,name,amount,type,freq,day,category,icon,account,lastPaid?,createdAt?} ], // type: expense|income
   templates: [ {id,name,amount,type,account,category,icon} ],
-  debts: [ {id,name,dir,amount,desc,dueDate,payments[],done} ], // dir: owe|owed
+  debts: [ {id,name,dir,amount,desc,dueDate,payments[],done} ], // dir: owe|owed; только трекинг, балансы счетов не двигает
   piggy: { balance, history[], pin },       // pin — 3 цифры или null
   notifs: [...], settings: {...}, createdAt
 }
-S.settings = { onboarded, sound, lang:'ru', currency:'EUR' }  // lang/currency пока заглушки
+S.settings = { onboarded, sound, lang:'ru', currency:'EUR', appPin? }  // lang/currency-селекторы убраны; appPin — 4 цифры или нет
 ```
+- **Экранировать пользовательский текст** через `esc(...)` при вставке в `innerHTML` (имена/описания/заметки).
+- **Даты** парсить через `ymd('YYYY-MM-DD')` (локально), не `new Date(str).getMonth()` (UTC-сдвиг).
+- **Удаления** обратимы: `undoToast(msg, restoreFn)` вместо обычного тоста.
+- **Регулярные**: ежемесячные авто-проводятся при запуске (`autoPostRecurring`, защита `createdAt`+`lastPaid`); income/expense.
+- **Бюджеты**: `category.budget` → прогресс в списке категорий + warn-уведомление при превышении.
+- **App-lock**: `S.settings.appPin` → экран `#applock` на входе (`showAppLock`), настройка в профиле (`initSecurity`).
 - `acctBal(acct)` = базовый баланс счёта + влияние транзакций. **Не считать балансы вручную.**
 - `type` транзакции: `expense` | `income` | `transfer`. `transfer` — это банкомат (нал↔банк),
   в статистику доходов/расходов НЕ входит.
 
 ## Важные продуктовые решения (не сломать!)
-- **Только € и русский.** Мультивалютность и мультиязычность убраны; в онбординге и
-  настройках есть селекторы language/currency, но они **заглушки** (сохраняют выбор,
-  не меняют интерфейс). Делать их рабочими — отдельная задача.
+- **Только € и русский.** Мультивалютность и мультиязычность убраны; селекторы language/currency
+  удалены из онбординга и настроек (раньше были заглушками). `S.settings.lang/currency` всегда ru/EUR.
 - **Копилка (piggy):** заходит по **3-значному PIN** (`openPinPad`), баланс скрыт
   (в профиле строка показывает `🔒 ••••`). Связана с банком: пополнение списывает с банка,
   снятие возвращает на банк. **Не входит в общий баланс и статистику**, транзакции не создаёт.
 - **Банкомат вместо переводов:** тип «🏧 Банкомат» в окне добавления — направление
   «Снять с банка» (bank→cash) / «Внести на банк» (cash→bank). Хранится как `type:'transfer'`.
-- **Онбординг** при первом запуске (`maybeOnboard`/`showOnboarding`): имя (обяз.), email,
-  язык, валюта, аватар. Существующим юзерам с данными не показывается.
+- **Онбординг** при первом запуске (`maybeOnboard`/`showOnboarding`): имя (обяз.), фото-аватар;
+  email показывается read-only из аккаунта. Существующим юзерам с данными не показывается.
+- **Аватар — только фото** (загрузка через `buildAvatarPicker`/`triggerAvatarUpload`, сжатие в
+  256px JPEG data-URL) либо буква имени. Эмодзи-аватары убраны. Показывается в профиле и топбаре главной.
 - Главный экран: «Доходы/Расходы · МЕСЯЦ» — за текущий месяц. «Общий баланс» = cash+bank.
 - Статистика: единый `periodRange()` (start/end/days по фактически прошедшим дням).
   «Ср./день» делит на реальные дни. График «Динамика за период» уважает выбранный период.
