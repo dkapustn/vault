@@ -1,0 +1,12 @@
+{
+  "name": "Vault",
+  "short_name": "Vault",
+  "display": "standalone",
+  "background_color": "#111113",
+  "theme_color": "#111113",
+  "start_url": "./",
+  "icons": [
+    { "src": "./icon1.jpeg", "sizes": "192x192", "type": "image/jpeg" },
+    { "src": "./icon1.jpeg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" }
+  ]
+}
