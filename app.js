@@ -1754,16 +1754,15 @@ function calcStreak() {
 
 function renderProfile() {
   const p = S.profile;
-  const editBtn = '<div class="av-ed" onclick="openEditProf()"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg></div>';
   const avEl = document.getElementById('p-av');
   if (isImgAvatar(p.avatar)) {
     avEl.classList.add('has-img');
     avEl.style.backgroundImage = `url('${p.avatar}')`;
-    avEl.innerHTML = editBtn;
+    avEl.innerHTML = '';
   } else {
     avEl.classList.remove('has-img');
     avEl.style.backgroundImage = '';
-    avEl.innerHTML = (p.name || 'A')[0].toUpperCase() + editBtn;
+    avEl.textContent = (p.name || 'A')[0].toUpperCase();
   }
   document.getElementById('p-name').textContent = p.name;
   document.getElementById('p-email').textContent = p.email || '—';
@@ -1777,37 +1776,42 @@ function renderProfile() {
   // Баланс копилки скрыт — виден только после ввода PIN внутри неё
   const pPiggy = document.getElementById('p-piggy');
   if (pPiggy) pPiggy.textContent = '🔒 ••••';
-  // Streak
-  const streak = calcStreak();
-  document.getElementById('str-val').textContent = streak;
-  document.getElementById('str-sub').textContent = streak > 0 ? `${streak} ${streak === 1 ? 'день' : streak < 5 ? 'дня' : 'дней'} подряд` : 'Добавляй записи каждый день';
-  document.getElementById('streak-c').style.background = streak >= 7 ? 'linear-gradient(135deg,#FF6B35,#F0900A)' : streak >= 3 ? 'linear-gradient(135deg,#F0900A,#fbbf24)' : '';
-  // Level — XP система
+  // Компактная полоска геймификации (детали — по тапу, openAchievements)
   const lv = calcLevel();
-  const xp = calcXP();
-  document.getElementById('lev-name').textContent = lv.name;
-  document.getElementById('lev-name').style.color = lv.color;
-  const levXp = document.getElementById('lev-xp'); if (levXp) levXp.textContent = xp + ' XP';
-  document.getElementById('lev-fill').style.width = Math.min(lv.pct, 100) + '%';
-  document.getElementById('lev-fill').style.background = `linear-gradient(90deg,${lv.color},${lv.color}99)`;
-  document.getElementById('lev-sub').textContent = lv.isMax
-    ? `${xp} XP · Максимальный уровень!`
-    : `${xp} XP · ещё ${lv.xpToNext} XP до «${lv.nextName}»`;
-  // Achievements
   const earnedCount = ACHS.filter(a => a.c()).length;
-  document.getElementById('ach-row').innerHTML = ACHS.map(a => {
-    const ok = a.c();
-    return `<div class="ach" title="${a.desc}">
-      <div class="ach-ic ${ok ? 'on' : 'off'}">${a.i}</div>
-      <div class="ach-n" style="${ok ? 'color:var(--ink2);font-weight:700' : ''}">${a.n}</div>
-    </div>`;
-  }).join('');
-  // Счётчик достижений рядом с заголовком
-  const achHdr = document.getElementById('ach-hdr-count');
-  if (achHdr) achHdr.textContent = `${earnedCount}/${ACHS.length}`;
+  const setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  setTxt('g-streak', calcStreak());
+  setTxt('g-level', (lv.name || '').replace(/^[^\wА-Яа-яЁё]+/, '').trim() || lv.name);
+  setTxt('g-ach', `${earnedCount}/${ACHS.length}`);
   // Update counters in profile list
   document.getElementById('p-tmpl-cnt').textContent = S.templates.length + ' шаблонов';
   document.getElementById('p-cats-cnt').textContent = S.categories.length + ' категорий';
+}
+
+// Детальный экран геймификации (серия, уровень, достижения) — по тапу на полоску.
+function openAchievements() {
+  const streak = calcStreak();
+  const lv = calcLevel();
+  const xp = calcXP();
+  const earned = ACHS.filter(a => a.c()).length;
+  const achHTML = ACHS.map(a => {
+    const ok = a.c();
+    return `<div class="ach" title="${esc(a.desc)}"><div class="ach-ic ${ok ? 'on' : 'off'}">${a.i}</div><div class="ach-n" style="${ok ? 'color:var(--ink2);font-weight:700' : ''}">${esc(a.n)}</div></div>`;
+  }).join('');
+  openSheet(`
+    <div class="cdlg-t">Прогресс</div>
+    <div class="ach-sheet-stats">
+      <div class="ach-ss"><div class="ach-ss-v">🔥 ${streak}</div><div class="ach-ss-l">серия дней</div></div>
+      <div class="ach-ss"><div class="ach-ss-v">${earned}/${ACHS.length}</div><div class="ach-ss-l">наград</div></div>
+    </div>
+    <div class="lev-c" style="margin:0 0 16px">
+      <div class="lev-top"><div><div class="lev-t">⚡ Уровень</div><div class="lev-l" style="color:${lv.color}">${esc(lv.name)}</div></div><div class="lev-xp">${xp} XP</div></div>
+      <div class="lev-bar"><div class="lev-fill" style="width:${Math.min(lv.pct, 100)}%;background:linear-gradient(90deg,${lv.color},${lv.color}99)"></div></div>
+      <div class="lev-sub">${lv.isMax ? 'Максимальный уровень!' : `ещё ${lv.xpToNext} XP до «${esc(lv.nextName)}»`}</div>
+    </div>
+    <div class="fl" style="margin-bottom:10px">Достижения</div>
+    <div class="ach-grid">${achHTML}</div>
+  `);
 }
 
 // ── FULLSCREEN PANELS ─────────────────

@@ -223,41 +223,30 @@
 </div>
 <div class="sc" id="sc-profile">
   <div class="topbar" style="padding-bottom:16px"><div class="hd">Профиль</div></div>
-  <div class="prof-top">
-    <div class="av" id="p-av" style="position:relative">Д
-      <div class="av-ed" onclick="openEditProf()">
-        <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
-      </div>
-    </div>
-    <div>
+  <div class="prof-card">
+    <div class="av" id="p-av">Д</div>
+    <div class="prof-card-info">
       <div class="pt-n" id="p-name">Денис</div>
-      <div class="pt-e" id="p-email">denis@example.com</div>
-      <div class="pt-j" id="p-joined">Используется с сегодня</div>
+      <div class="pt-e" id="p-email">—</div>
+      <div class="pt-j" id="p-joined"></div>
     </div>
+    <button class="prof-edit" type="button" onclick="openEditProf()" aria-label="Редактировать профиль">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
+    </button>
   </div>
   <div class="psgrid">
-    <div class="ps"><div class="ps-v" id="ps-tx">0</div><div class="ps-l">Опер.</div></div>
-    <div class="ps"><div class="ps-v" id="ps-cat">0</div><div class="ps-l">Кат.</div></div>
-    <div class="ps"><div class="ps-v" id="ps-days">0</div><div class="ps-l">Дней</div></div>
+    <div class="ps"><div class="ps-v" id="ps-tx">0</div><div class="ps-l">операций</div></div>
+    <div class="ps"><div class="ps-v" id="ps-cat">0</div><div class="ps-l">категорий</div></div>
+    <div class="ps"><div class="ps-v" id="ps-days">0</div><div class="ps-l">дней</div></div>
   </div>
-  <div class="streak-c" id="streak-c">
-    <div><div class="str-lbl">СЕРИЯ ДНЕЙ</div><div class="str-val" id="str-val">0</div><div class="str-sub" id="str-sub">Добавляй записи каждый день</div></div>
-    <div class="str-ico">🔥</div>
+  <div class="gami-strip" id="gami-strip" onclick="openAchievements()">
+    <div class="gami-i"><b id="g-streak">0</b><span class="gami-l">🔥 серия</span></div>
+    <div class="gami-sep"></div>
+    <div class="gami-i"><b id="g-level">—</b><span class="gami-l">⚡ уровень</span></div>
+    <div class="gami-sep"></div>
+    <div class="gami-i"><b id="g-ach">0/12</b><span class="gami-l">🏆 награды</span></div>
+    <svg class="gami-chev" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
   </div>
-  <div class="lev-c">
-    <div class="lev-top">
-      <div><div class="lev-t">⚡ Уровень</div><div class="lev-l" id="lev-name">🌱 Новичок</div></div>
-      <div class="lev-xp" id="lev-xp">0 XP</div>
-    </div>
-    <div class="lev-bar"><div class="lev-fill" id="lev-fill" style="width:0%"></div></div>
-    <div class="lev-sub" id="lev-sub">Добавь первую операцию</div>
-  </div>
-  <div class="row" style="margin-bottom:8px">
-    <div class="row-t">Достижения</div>
-    <div style="font-size:12px;color:var(--ink3);font-weight:700" id="ach-hdr-count">0/12</div>
-  </div>
-  <div class="achrow" id="ach-row"></div>
-  <div style="height:14px"></div>
   <div class="sg"><div class="sg-lbl">Профиль</div><div class="slist">
     <div class="si" onclick="openFSPanel('templates')"><div class="si-ic" style="background:#2a1f0a">⚡</div><div class="si-t"><div class="si-n">Шаблоны</div><div class="si-s" id="p-tmpl-cnt">0 шаблонов</div></div><div class="si-r"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg></div></div>
     <div class="si" onclick="openFSPanel('cats')"><div class="si-ic" style="background:#0a2018">🏷️</div><div class="si-t"><div class="si-n">Категории</div><div class="si-s" id="p-cats-cnt">0 категорий</div></div><div class="si-r"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg></div></div>
