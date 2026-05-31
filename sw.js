@@ -1,6 +1,6 @@
 // Vault service worker — offline app shell caching.
 // Bump CACHE when shell files change to force an update.
-const CACHE = 'vault-v4';
+const CACHE = 'vault-v5';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './config.js', './cloud.js', './manifest.json', './icon.png'];
 
 self.addEventListener('install', e => {
