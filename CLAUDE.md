@@ -38,12 +38,15 @@
   document.getElementById('onboarding').classList.remove('on')`.
 
 ## Модель данных (объект `S`)
-**Источник правды — облако (Supabase, таблица `user_states`, одна строка на аккаунт,
-всё состояние в `state jsonb`).** При настроенном `config.js` `save()` пушит `S` в БД
-(дебаунс 800мс + флаш на `pagehide`/`visibilitychange`), а localStorage/IndexedDB **не
-используются** (legacy-локалка читается один раз в `appInit` только для миграции старых
-юзеров, потом удаляется). Если `config.js` пустой — фоллбэк в `localStorage['vault_v6']`
-+ IndexedDB (`VaultDB`), как раньше (дев-режим без облака).
+**Гибрид: durable-источник — облако (Supabase, таблица `user_states`, одна строка на
+аккаунт, всё в `state jsonb`); локальный кэш — для скорости и офлайна.** При настроенном
+`config.js` `save()` (а) пишет локальный кэш `vault_cache` (localStorage + IndexedDB-ключ
+`cloud`) с единой меткой `updatedAt` и `userId`, и (б) дебаунс-пушит `S`+ту же метку в БД
+(800мс, флаш на `pagehide`/`visibilitychange`/`online`). На старте `appInit` читает кэш,
+ждёт `cloudReady` и **сверяет по `updatedAt` — берёт свежее**; при ошибке сети (`pull`
+вернул `{error}`) уходит в офлайн-режим из кэша. Кэш привязан к `userId` (чужой аккаунт
+не увидит чужие данные). Legacy `vault_v6` читается один раз для миграции. Если `config.js`
+пустой — чистый локальный режим в `localStorage['vault_v6']` + IndexedDB (дев без облака).
 `parseState()` задаёт дефолты и мигрирует старые данные — **новые поля добавлять туда же**.
 Облачный слой: `cloud.js` (auth-экран, клиент Supabase, синк), `config.js` (ключи),
 `supabase.sql` (схема + RLS + `delete_user()`). Контракт см. в шапке `cloud.js`.
